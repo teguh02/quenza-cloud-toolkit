@@ -124,12 +124,59 @@ Drive).
 
 - Buka URL akses yang ditampilkan (mis. `http://<ip-server>:8000`).
 - Login dengan **Master Password** yang ditampilkan di akhir instalasi.
+  - Cadangan password juga ditulis ke `.initial_master_password.txt` (izin 600)
+    di folder instalasi. **Salin, lalu hapus** file itu:
+    `rm .initial_master_password.txt`.
 - Atur zona waktu, notifikasi, destinasi, dan project Anda.
 
-> **Lupa Master Password?** Buat hash baru:
-> `./.venv/bin/python generate_hash.py` (Linux) atau
-> `.\.venv\Scripts\python.exe generate_hash.py` (Windows), lalu tempel
-> nilainya ke `MASTER_PASSWORD_HASH` di `.env`, dan restart layanan.
+---
+
+## Management Console (`toolkit.py`)
+
+Setelah terpasang, kelola instalasi lewat konsol bawaan tanpa perlu instal ulang.
+
+**Mode interaktif (menu):**
+```bash
+cd <lokasi-instalasi>
+./.venv/bin/python toolkit.py            # Linux/macOS
+.\.venv\Scripts\python.exe toolkit.py    # Windows
+```
+
+Menu mencakup:
+- Regenerate / set **Master Password** (dengan opsi restart layanan otomatis)
+- Regenerate `SECRET_KEY`
+- Regenerate `ENCRYPTION_KEY` (berbahaya — kredensial destinasi lama jadi tak terbaca)
+- Ubah **Public URL** / `GOOGLE_REDIRECT_URI`
+- **Status / Start / Stop / Restart** layanan + lihat log
+- Ringkasan konfigurasi (`.env`, nilai rahasia disembunyikan)
+- Jalankan **backup manual** sebuah project
+- **Cek & jalankan update** dari GitHub
+
+**Mode non-interaktif (CLI):**
+```bash
+./.venv/bin/python toolkit.py regen-password     # password acak baru (ditampilkan)
+./.venv/bin/python toolkit.py set-password       # ketik manual (tersembunyi)
+./.venv/bin/python toolkit.py status
+./.venv/bin/python toolkit.py restart
+./.venv/bin/python toolkit.py logs
+./.venv/bin/python toolkit.py config
+./.venv/bin/python toolkit.py backup 1           # backup project id 1
+./.venv/bin/python toolkit.py set-public-url https://toolkit.domain.com
+./.venv/bin/python toolkit.py check-update       # cek pembaruan
+./.venv/bin/python toolkit.py update             # update (tanya konfirmasi)
+./.venv/bin/python toolkit.py update --yes       # update tanpa konfirmasi
+```
+
+> **Memperbarui aplikasi:** `toolkit.py update` mengambil versi terbaru dari
+> GitHub (git `reset --hard` bila instalasi via git, atau unduh arsip bila
+> non-git), memasang ulang dependencies, lalu menawarkan restart layanan.
+> File `.env`, `.venv`, database, dan `backups/` **tidak** disentuh. Karena
+> `toolkit.py` sendiri ikut diperbarui, **jalankan ulang** `toolkit.py`
+> setelah update untuk memakai versi terbaru.
+
+> **Lupa Master Password?** Cukup jalankan
+> `./.venv/bin/python toolkit.py regen-password`, salin password baru yang
+> ditampilkan, lalu setujui restart layanan.
 
 ---
 

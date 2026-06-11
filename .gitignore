@@ -32,6 +32,7 @@ install.log
 server.log
 run.sh
 nssm/
+.initial_master_password.txt
 
 # --- IDE / OS ---
 .vscode/

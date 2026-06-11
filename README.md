@@ -353,6 +353,33 @@ pilihan). Kredensial SMTP/Telegram disimpan **terenkripsi** di database
 
 ---
 
+## Management Console (`toolkit.py`)
+
+Konsol bawaan untuk mengelola instalasi tanpa instal ulang. Jalankan dari
+folder instalasi (gunakan Python venv):
+
+```bash
+./.venv/bin/python toolkit.py            # menu interaktif (Linux/macOS)
+.\.venv\Scripts\python.exe toolkit.py    # Windows
+```
+
+Fitur: regenerate/set Master Password, regenerate `SECRET_KEY`/`ENCRYPTION_KEY`,
+ubah Public URL, **start/stop/restart/status** layanan + lihat log, ringkasan
+konfigurasi, **backup manual** per project, dan **cek & jalankan update** dari
+GitHub. Tersedia juga mode CLI, mis.:
+
+```bash
+./.venv/bin/python toolkit.py regen-password   # lupa password? buat baru
+./.venv/bin/python toolkit.py restart
+./.venv/bin/python toolkit.py backup 1
+./.venv/bin/python toolkit.py check-update     # cek versi terbaru
+./.venv/bin/python toolkit.py update --yes     # update + reinstall deps + restart
+```
+
+Lihat detail di [`docs/INSTALL.md`](docs/INSTALL.md).
+
+---
+
 ## Troubleshooting
 
 | Gejala | Solusi |

@@ -147,15 +147,20 @@ run_step() {
 
   local rc=0
   IN_STEP=1   # log_* inside the step go to screen only; tee handles the file
+  # IMPORTANT: run the command in the CURRENT shell (not a pipeline subshell)
+  # so any global variables it sets (e.g. MASTER_PASSWORD, SERVICE_KIND) persist.
+  # Process substitution keeps "$@" in the main shell while still streaming
+  # output live + appending to the log.
   if [ -n "$LOG_FILE" ]; then
-    # Stream stdout+stderr live AND append to log (indented, dimmed).
-    "$@" 2>&1 | _indent_stream | tee -a "$LOG_FILE"
-    rc=${PIPESTATUS[0]}
+    "$@" > >(_indent_stream | tee -a "$LOG_FILE") 2>&1
+    rc=$?
   else
-    "$@" 2>&1 | _indent_stream
-    rc=${PIPESTATUS[0]}
+    "$@" > >(_indent_stream) 2>&1
+    rc=$?
   fi
   IN_STEP=0
+  # Give the process-substitution writer a moment to flush before continuing.
+  sleep 0.05 2>/dev/null || true
 
   if [ "$rc" -eq 0 ]; then
     log "${C_GRN}✓ [${STEP_NO}/${STEP_TOTAL}] ${label} — selesai${C_RESET}"
@@ -567,6 +572,17 @@ configure_env() {
   [ -z "$hash" ] && { log_err "Gagal membuat hash Master Password."; return 1; }
   set_env_var "MASTER_PASSWORD_HASH" "$hash"
 
+  # Safety net: also write the plaintext to a 600 file so it is not lost if the
+  # terminal scrolls away. The summary instructs the user to copy & delete it.
+  local pwfile="${INSTALL_DIR}/.initial_master_password.txt"
+  {
+    printf "%s\n" "Quenza Cloud Toolkit — Master Password awal"
+    printf "%s\n" "Dibuat: $(date 2>/dev/null)"
+    printf "%s\n" "SIMPAN password ini, lalu HAPUS file ini (rm '${pwfile}')."
+    printf "\n%s\n" "$MASTER_PASSWORD"
+  } > "$pwfile" 2>/dev/null || true
+  chmod 600 "$pwfile" 2>/dev/null || true
+
   # DEBUG true (HTTP, reverse-proxy friendly)
   set_env_var "DEBUG" "true"
 
@@ -687,7 +703,12 @@ print_summary() {
   log "  ${C_BOLD}Service       :${C_RESET} ${SERVICE_NAME} (${SERVICE_KIND})"
   log ""
   log "  ${C_YEL}${C_BOLD}Master Password (SIMPAN — hanya tampil sekali):${C_RESET}"
-  log "  ${C_BOLD}${MASTER_PASSWORD}${C_RESET}"
+  log "  ${C_BOLD}${MASTER_PASSWORD:-(tidak tersedia — lihat file di bawah)}${C_RESET}"
+  log "  ${C_DIM}Cadangan tersimpan di: ${INSTALL_DIR}/.initial_master_password.txt${C_RESET}"
+  log "  ${C_DIM}Setelah disalin, hapus: rm '${INSTALL_DIR}/.initial_master_password.txt'${C_RESET}"
+  log ""
+  log "  ${C_DIM}Konsol manajemen (regenerate password, restart layanan, dll):${C_RESET}"
+  log "    cd '${INSTALL_DIR}' && ./.venv/bin/python toolkit.py"
   log ""
   if [ "$SERVICE_KIND" = "systemd" ]; then
     log "  ${C_DIM}Kelola service:${C_RESET}"
