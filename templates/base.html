@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+  <head>
+    {% include "partials/head.html" %}
+    {% block head_extra %}{% endblock %}
+  </head>
+  <body class="h-full bg-canvas font-sans text-heading antialiased">
+    {% include "partials/sidebar.html" %}
+
+    {# Main column: offset by sidebar width on desktop #}
+    <div class="flex min-h-full flex-col transition-all duration-quenza ease-quenza lg:pl-[260px]" id="quenza-main">
+      <main class="flex-1 px-5 py-6 sm:px-8 sm:py-8">
+        <div class="mx-auto w-full max-w-7xl">
+          {% include "partials/header.html" %}
+
+          {% block content %}{% endblock %}
+        </div>
+      </main>
+
+      <footer class="px-5 py-6 sm:px-8">
+        <div class="mx-auto w-full max-w-7xl">
+          <p class="text-center text-xs text-label">
+            {{ app_name }} &middot; v{{ app_version }} &mdash; Internal backup &amp; restore management.
+          </p>
+        </div>
+      </footer>
+    </div>
+
+    <script src="/static/js/app.js" defer></script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

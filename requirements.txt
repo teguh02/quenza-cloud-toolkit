@@ -1,0 +1,31 @@
+# Quenza Cloud Toolkit - Phase 1 dependencies
+
+# Web framework & server
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Templating & form handling
+jinja2==3.1.5
+python-multipart==0.0.20
+
+# Configuration
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+
+# Session & security
+itsdangerous==2.2.0
+bcrypt==4.2.1
+
+# Database (SQLite via SQLAlchemy)
+SQLAlchemy==2.0.50
+
+# Scheduling (Phase 4)
+APScheduler==3.11.0
+
+# Cloud destinations (Phase 4)
+boto3==1.35.90
+# Google Drive & Mega are optional; imported lazily. Install to enable:
+#   pip install PyDrive2==1.21.3 mega.py==1.0.8
+
+# Dev/testing (TestClient)
+httpx==0.28.1

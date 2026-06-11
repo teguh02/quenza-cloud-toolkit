@@ -1,0 +1,46 @@
+{#
+  Quenza flash/toast partial.
+  Renders a dismissible toast when `flash` is set. `flash_type` controls
+  the color: success (default), error, info.
+#}
+{% if flash %}
+<div
+  id="quenza-flash"
+  class="fixed right-5 top-5 z-[60] flex max-w-sm items-start gap-3 rounded-2xl border px-4 py-3 shadow-card-hover transition-all duration-quenza ease-quenza
+  {% if flash_type == 'error' %}border-red-100 bg-red-50{% elif flash_type == 'info' %}border-blue-100 bg-blue-50{% else %}border-emerald-100 bg-emerald-50{% endif %}"
+  role="alert"
+>
+  <span class="mt-0.5 shrink-0
+    {% if flash_type == 'error' %}text-red-500{% elif flash_type == 'info' %}text-blue-500{% else %}text-emerald-600{% endif %}">
+    {% if flash_type == 'error' %}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    {% elif flash_type == 'info' %}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    {% else %}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    {% endif %}
+  </span>
+  <p class="flex-1 text-sm font-medium
+    {% if flash_type == 'error' %}text-red-600{% elif flash_type == 'info' %}text-blue-600{% else %}text-emerald-700{% endif %}">
+    {{ flash }}
+  </p>
+  <button
+    type="button"
+    onclick="document.getElementById('quenza-flash').remove()"
+    class="shrink-0 text-label transition-colors duration-quenza ease-quenza hover:text-secondary"
+    aria-label="Tutup"
+  >
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+</div>
+<script>
+  setTimeout(function () {
+    var el = document.getElementById("quenza-flash");
+    if (el) {
+      el.style.opacity = "0";
+      el.style.transform = "translateY(-8px)";
+      setTimeout(function () { el && el.remove(); }, 300);
+    }
+  }, 4000);
+</script>
+{% endif %}

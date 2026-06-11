@@ -1,0 +1,78 @@
+{#
+  Quenza Sidebar
+  - Desktop (>=1024px): fixed 260px, full labels
+  - Tablet (768-1023px): icon-only (72px) [handled in app.js + CSS]
+  - Mobile (<768px): off-canvas drawer toggled by hamburger
+  Active item uses the Quenza nav gradient pill (#0EA5A4 -> #84CC16).
+#}
+{% set nav_items = [
+  {"key": "dashboard",    "label": "Dashboard",       "href": "/",             "icon": "grid"},
+  {"key": "projects",     "label": "Projects",        "href": "/projects",     "icon": "folder"},
+  {"key": "schedules",    "label": "Schedules",       "href": "/schedules",    "icon": "clock"},
+  {"key": "destinations", "label": "Destinations",    "href": "/destinations", "icon": "cloud"},
+  {"key": "restore",      "label": "Restore",         "href": "/restore",      "icon": "restore"},
+  {"key": "history",      "label": "History / Logs",  "href": "/history",      "icon": "list"},
+  {"key": "settings",     "label": "Settings",        "href": "/settings",     "icon": "cog"},
+  {"key": "help",         "label": "Help / Docs",     "href": "/help",         "icon": "help"}
+] %}
+
+<aside
+  id="quenza-sidebar"
+  class="quenza-sidebar fixed inset-y-0 left-0 z-40 flex w-[260px] -translate-x-full flex-col border-r border-line bg-surface transition-transform duration-quenza ease-quenza lg:translate-x-0"
+>
+  {# Brand #}
+  <div class="flex h-[72px] shrink-0 items-center gap-3 px-6">
+    <div
+      class="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-gradient shadow-card"
+    >
+      <svg class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+    </div>
+    <div class="sidebar-label leading-tight">
+      <p class="text-[15px] font-extrabold tracking-tight text-heading">Quenza</p>
+      <p class="text-[11px] font-medium text-label">Cloud Toolkit</p>
+    </div>
+  </div>
+
+  {# Navigation #}
+  <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-2">
+    {% for item in nav_items %}
+    {% set is_active = (active_page == item.key) %}
+    <a
+      href="{{ item.href }}"
+      class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-quenza ease-quenza
+      {% if is_active %}bg-nav-gradient text-white shadow-card{% else %}text-secondary hover:bg-canvas hover:text-heading{% endif %}"
+      {% if is_active %}aria-current="page"{% endif %}
+    >
+      <span class="flex h-5 w-5 shrink-0 items-center justify-center">
+        {% include "partials/icons/" + item.icon + ".html" ignore missing %}
+      </span>
+      <span class="sidebar-label">{{ item.label }}</span>
+    </a>
+    {% endfor %}
+  </nav>
+
+  {# Footer / logout #}
+  <div class="shrink-0 border-t border-line p-3">
+    <a
+      href="/logout"
+      class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-secondary transition-all duration-quenza ease-quenza hover:bg-canvas hover:text-heading"
+    >
+      <span class="flex h-5 w-5 shrink-0 items-center justify-center">
+        <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+      </span>
+      <span class="sidebar-label">Logout</span>
+    </a>
+  </div>
+</aside>
+
+{# Mobile backdrop #}
+<div
+  id="quenza-backdrop"
+  class="fixed inset-0 z-30 hidden bg-heading/30 backdrop-blur-sm lg:hidden"
+></div>

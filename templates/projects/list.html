@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Projects &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+{% include "partials/flash.html" %}
+
+<div class="space-y-6">
+  {# Toolbar #}
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <p class="text-sm text-secondary">
+        Total <span class="font-semibold text-heading">{{ cards|length }}</span> project.
+      </p>
+    </div>
+    <button
+      type="button"
+      onclick="window.QuenzaModal && QuenzaModal.open('modal-create-project')"
+      class="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New Project
+    </button>
+  </div>
+
+  {% if cards %}
+  {# Project card grid #}
+  <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+    {% for card in cards %}
+    {% set p = card.project %}
+    <a
+      href="/projects/{{ p.id }}"
+      class="group flex flex-col rounded-3xl border border-line bg-surface p-6 shadow-card transition-all duration-quenza ease-quenza hover:-translate-y-0.5 hover:shadow-card-hover"
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-pastel-blue">
+          <span class="text-blue-500">
+            {% include "partials/icons/folder.html" %}
+          </span>
+        </div>
+        <span
+          class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold
+          {% if p.is_active %}bg-pastel-green text-emerald-600{% else %}bg-canvas text-label{% endif %}"
+        >
+          <span class="h-1.5 w-1.5 rounded-full {% if p.is_active %}bg-brand-green{% else %}bg-label{% endif %}"></span>
+          {{ "Aktif" if p.is_active else "Nonaktif" }}
+        </span>
+      </div>
+
+      <h3 class="mt-4 text-base font-bold text-heading">{{ p.name }}</h3>
+      <p class="mt-1 line-clamp-2 min-h-[2.5rem] text-sm text-secondary">
+        {{ p.description or "Tidak ada deskripsi." }}
+      </p>
+
+      <div class="mt-4 flex items-center gap-4 border-t border-line pt-4 text-xs text-label">
+        <span class="inline-flex items-center gap-1.5">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          {{ card.source_count }} sumber
+        </span>
+        <span class="inline-flex items-center gap-1.5 uppercase">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5" rx="1"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+          {{ p.archive_format.value }}
+        </span>
+        <span class="ml-auto inline-flex items-center gap-1 font-semibold text-brand-teal opacity-0 transition-opacity duration-quenza ease-quenza group-hover:opacity-100">
+          Buka
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  {# Empty state #}
+  <div class="flex min-h-[360px] items-center justify-center rounded-3xl border border-dashed border-line bg-surface">
+    <div class="max-w-sm text-center">
+      <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-pastel-blue">
+        <span class="text-blue-500">{% include "partials/icons/folder.html" %}</span>
+      </div>
+      <h3 class="mt-5 text-lg font-bold text-heading">Belum ada project</h3>
+      <p class="mt-1.5 text-sm text-secondary">
+        Buat project pertama Anda untuk mulai mengonfigurasi sumber & jadwal backup.
+      </p>
+      <button
+        type="button"
+        onclick="window.QuenzaModal && QuenzaModal.open('modal-create-project')"
+        class="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03]"
+      >
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Buat Project
+      </button>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{# ===================== CREATE PROJECT MODAL ===================== #}
+<div
+  id="modal-create-project"
+  class="quenza-modal fixed inset-0 z-50 hidden items-center justify-center px-4"
+  aria-hidden="true"
+>
+  <div class="quenza-modal-backdrop absolute inset-0 bg-heading/30 backdrop-blur-sm" onclick="QuenzaModal.close('modal-create-project')"></div>
+  <div class="quenza-modal-panel relative w-full max-w-lg rounded-3xl border border-line bg-surface p-7 shadow-card-hover">
+    <div class="mb-5 flex items-center justify-between">
+      <h3 class="text-lg font-bold text-heading">Buat Project Baru</h3>
+      <button type="button" onclick="QuenzaModal.close('modal-create-project')" class="text-label transition-colors duration-quenza ease-quenza hover:text-secondary" aria-label="Tutup">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <form method="post" action="/projects/create" class="space-y-5">
+      <div>
+        <label for="cp-name" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Nama Project</label>
+        <input id="cp-name" name="name" type="text" required maxlength="120" placeholder="mis. Server Produksi"
+          class="w-full rounded-xl border border-line bg-canvas px-4 py-3 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+      </div>
+
+      <div>
+        <label for="cp-desc" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Deskripsi <span class="font-normal normal-case text-label">(opsional)</span></label>
+        <textarea id="cp-desc" name="description" rows="3" placeholder="Deskripsi singkat project..."
+          class="w-full resize-none rounded-xl border border-line bg-canvas px-4 py-3 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25"></textarea>
+      </div>
+
+      <div>
+        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Format Output</label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="quenza-radio-tile flex cursor-pointer items-center gap-3 rounded-xl border border-line bg-canvas px-4 py-3 transition-all duration-quenza ease-quenza has-[:checked]:border-brand-teal has-[:checked]:bg-surface has-[:checked]:ring-2 has-[:checked]:ring-brand-teal/25">
+            <input type="radio" name="archive_format" value="zip" checked class="h-4 w-4 accent-brand-teal" />
+            <span class="text-sm font-semibold text-heading">.zip</span>
+          </label>
+          <label class="quenza-radio-tile flex cursor-pointer items-center gap-3 rounded-xl border border-line bg-canvas px-4 py-3 transition-all duration-quenza ease-quenza has-[:checked]:border-brand-teal has-[:checked]:bg-surface has-[:checked]:ring-2 has-[:checked]:ring-brand-teal/25">
+            <input type="radio" name="archive_format" value="tar.gz" class="h-4 w-4 accent-brand-teal" />
+            <span class="text-sm font-semibold text-heading">.tar.gz</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button type="button" onclick="QuenzaModal.close('modal-create-project')"
+          class="rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-all duration-quenza ease-quenza hover:text-heading">
+          Batal
+        </button>
+        <button type="submit"
+          class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
+          Buat Project
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/modal.js"></script>
+{% endblock %}

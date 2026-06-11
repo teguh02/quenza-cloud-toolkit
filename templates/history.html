@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}History / Logs &middot; {{ app_name }}{% endblock %}
+
+{% macro filter_link(action, status, label, active) -%}
+<a href="/history{% if action or status %}?{% endif %}{% if action %}action={{ action }}{% endif %}{% if action and status %}&amp;{% endif %}{% if status %}status={{ status }}{% endif %}"
+  class="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-quenza ease-quenza {% if active %}bg-surface text-heading shadow-card{% else %}text-secondary hover:text-heading{% endif %}">
+  {{ label }}
+</a>
+{%- endmacro %}
+
+{% block content %}
+<div class="space-y-6">
+  {# Summary chips #}
+  <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    {% set chips = [
+      {"label": "Total Log", "value": counts.total, "tone": "pastel-blue", "fg": "text-blue-500"},
+      {"label": "Backup Sukses", "value": counts.backup_success, "tone": "pastel-green", "fg": "text-brand-teal"},
+      {"label": "Backup Gagal", "value": counts.backup_failed, "tone": "pastel-orange", "fg": "text-amber-500"},
+      {"label": "Restore", "value": counts.restore_total, "tone": "pastel-purple", "fg": "text-purple-500"}
+    ] %}
+    {% for chip in chips %}
+    <div class="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 shadow-card">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-{{ chip.tone }} {{ chip.fg }}">
+        {% include "partials/icons/list.html" %}
+      </div>
+      <div>
+        <p class="text-lg font-extrabold text-heading">{{ chip.value }}</p>
+        <p class="text-[11px] font-medium text-label">{{ chip.label }}</p>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# Filters #}
+  <div class="flex flex-wrap items-center gap-3">
+    <div class="inline-flex rounded-xl border border-line bg-canvas p-1">
+      {{ filter_link("", filter_status, "Semua Aksi", filter_action == "") }}
+      {{ filter_link("backup", filter_status, "Backup", filter_action == "backup") }}
+      {{ filter_link("restore", filter_status, "Restore", filter_action == "restore") }}
+    </div>
+    <div class="inline-flex rounded-xl border border-line bg-canvas p-1">
+      {{ filter_link(filter_action, "", "Semua Status", filter_status == "") }}
+      {{ filter_link(filter_action, "success", "Sukses", filter_status == "success") }}
+      {{ filter_link(filter_action, "failed", "Gagal", filter_status == "failed") }}
+    </div>
+  </div>
+
+  {% if rows %}
+  <div class="overflow-hidden rounded-3xl border border-line bg-surface shadow-card">
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[680px] text-left text-sm">
+        <thead>
+          <tr class="border-b border-line bg-canvas text-xs uppercase tracking-wide text-label">
+            <th class="px-6 py-4 font-semibold">Waktu</th>
+            <th class="px-6 py-4 font-semibold">Aksi</th>
+            <th class="px-6 py-4 font-semibold">Target</th>
+            <th class="px-6 py-4 font-semibold">Status</th>
+            <th class="px-6 py-4 font-semibold">Ukuran</th>
+            <th class="px-6 py-4"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+          {% for row in rows %}
+          {% set log = row.log %}
+          <tr class="transition-colors duration-quenza ease-quenza hover:bg-canvas">
+            <td class="whitespace-nowrap px-6 py-4 text-secondary">{{ log.created_at.strftime("%Y-%m-%d %H:%M") if log.created_at else "-" }}</td>
+            <td class="px-6 py-4">
+              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold
+                {% if log.action == 'restore' %}bg-pastel-purple text-purple-600{% else %}bg-pastel-blue text-blue-600{% endif %}">
+                {{ log.action }}
+              </span>
+              {% if log.trigger == 'schedule' %}
+              <span class="ml-1 rounded-full bg-canvas px-2 py-0.5 text-[10px] font-semibold uppercase text-label ring-1 ring-line">auto</span>
+              {% endif %}
+            </td>
+            <td class="max-w-[220px] px-6 py-4">
+              <span class="block truncate font-medium text-heading">{{ log.project_name or "-" }}</span>
+              <span class="block truncate text-xs text-label">{{ log.message }}</span>
+            </td>
+            <td class="px-6 py-4">
+              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold
+                {% if log.status == 'success' %}bg-pastel-green text-emerald-600
+                {% elif log.status == 'partial' %}bg-pastel-orange text-amber-600
+                {% else %}bg-red-50 text-red-500{% endif %}">
+                <span class="h-1.5 w-1.5 rounded-full
+                  {% if log.status == 'success' %}bg-brand-green
+                  {% elif log.status == 'partial' %}bg-amber-400
+                  {% else %}bg-red-400{% endif %}"></span>
+                {{ log.status }}
+              </span>
+            </td>
+            <td class="whitespace-nowrap px-6 py-4 text-secondary">{{ "%.1f KB"|format(log.size_bytes / 1024) if log.size_bytes else "-" }}</td>
+            <td class="px-6 py-4 text-right">
+              <button type="button"
+                onclick='QuenzaHistory.showDetail({{ log.id }}, {{ log.message|tojson }}, {{ row.detail|tojson }})'
+                class="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-secondary transition-all duration-quenza ease-quenza hover:border-brand-teal/30 hover:text-heading">
+                Detail
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# Pagination #}
+    {% if pagination.pages > 1 %}
+    <div class="flex items-center justify-between border-t border-line px-6 py-4">
+      <p class="text-xs text-label">Halaman {{ pagination.page }} dari {{ pagination.pages }} &middot; {{ pagination.total }} log</p>
+      <div class="flex items-center gap-2">
+        {% set qbase = "/history?" + ("action=" + filter_action + "&" if filter_action else "") + ("status=" + filter_status + "&" if filter_status else "") %}
+        <a href="{{ qbase }}page={{ pagination.page - 1 }}"
+          class="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold transition-all duration-quenza ease-quenza {% if not pagination.has_prev %}pointer-events-none opacity-40{% else %}text-secondary hover:text-heading{% endif %}">
+          Sebelumnya
+        </a>
+        <a href="{{ qbase }}page={{ pagination.page + 1 }}"
+          class="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold transition-all duration-quenza ease-quenza {% if not pagination.has_next %}pointer-events-none opacity-40{% else %}text-secondary hover:text-heading{% endif %}">
+          Berikutnya
+        </a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="flex min-h-[320px] items-center justify-center rounded-3xl border border-dashed border-line bg-surface">
+    <div class="max-w-sm text-center">
+      <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-pastel-green text-brand-teal">
+        {% include "partials/icons/list.html" %}
+      </div>
+      <h3 class="mt-5 text-lg font-bold text-heading">Belum ada log</h3>
+      <p class="mt-1.5 text-sm text-secondary">Riwayat akan muncul setelah Anda menjalankan backup atau restore.</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{# Detail modal #}
+<div id="modal-log-detail" class="quenza-modal fixed inset-0 z-50 hidden items-center justify-center p-4" aria-hidden="true">
+  <div class="quenza-modal-backdrop absolute inset-0 bg-heading/30 backdrop-blur-sm" onclick="QuenzaModal.close('modal-log-detail')"></div>
+  <div class="quenza-modal-panel relative w-full max-w-lg rounded-3xl border border-line bg-surface p-7 shadow-card-hover">
+    <div class="mb-4 flex items-center justify-between">
+      <h3 class="text-lg font-bold text-heading">Detail Log</h3>
+      <button type="button" onclick="QuenzaModal.close('modal-log-detail')" class="text-label transition-colors duration-quenza ease-quenza hover:text-secondary" aria-label="Tutup">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <p id="log-detail-msg" class="mb-3 text-sm text-secondary"></p>
+    <pre id="log-detail-json" class="max-h-80 overflow-auto rounded-xl bg-canvas p-4 font-mono text-xs text-heading"></pre>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/modal.js"></script>
+<script>
+  window.QuenzaHistory = (function () {
+    function showDetail(id, message, detail) {
+      var msg = document.getElementById("log-detail-msg");
+      var pre = document.getElementById("log-detail-json");
+      if (msg) msg.textContent = message || "";
+      if (pre) pre.textContent = JSON.stringify(detail || {}, null, 2);
+      window.QuenzaModal && QuenzaModal.open("modal-log-detail");
+    }
+    return { showDetail: showDetail };
+  })();
+</script>
+{% endblock %}

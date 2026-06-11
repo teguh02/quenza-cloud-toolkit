@@ -1,0 +1,164 @@
+"""APScheduler integration: in-process scheduling of project backups.
+
+A single BackgroundScheduler runs inside the FastAPI process. On startup
+it loads all enabled schedules from the database and registers a cron job
+per project. Jobs call the backup orchestrator in a worker thread.
+
+Schedule recurrence model (from the Schedule row):
+    frequency: "daily" | "weekly" | "monthly"
+    hour, minute: time of day
+    day_of_week: 0=Mon .. 6=Sun  (weekly)
+    day_of_month: 1..31          (monthly)
+"""
+
+from __future__ import annotations
+
+import logging
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+from app.database import SessionLocal
+from app.models import Schedule
+from app.services import backup_service
+
+logger = logging.getLogger("quenza.scheduler")
+
+_scheduler: BackgroundScheduler | None = None
+
+
+def _job_id(project_id: int) -> str:
+    return f"project-backup-{project_id}"
+
+
+def _run_scheduled_backup(project_id: int) -> None:
+    """Job target: execute a backup with the 'schedule' trigger."""
+    logger.info("Scheduled backup starting for project %s", project_id)
+    try:
+        result = backup_service.run_backup(project_id, trigger="schedule")
+        logger.info(
+            "Scheduled backup for project %s finished: %s",
+            project_id,
+            result.get("status"),
+        )
+    except Exception:  # pragma: no cover - safety net
+        logger.exception("Scheduled backup crashed for project %s", project_id)
+
+
+def _build_trigger(sched: Schedule) -> CronTrigger:
+    """Translate a Schedule row into an APScheduler CronTrigger."""
+    hour = int(sched.hour or 0)
+    minute = int(sched.minute or 0)
+    freq = (sched.frequency or "daily").lower()
+
+    if freq == "weekly":
+        dow = sched.day_of_week if sched.day_of_week is not None else 0
+        return CronTrigger(day_of_week=int(dow), hour=hour, minute=minute)
+    if freq == "monthly":
+        dom = sched.day_of_month if sched.day_of_month is not None else 1
+        return CronTrigger(day=int(dom), hour=hour, minute=minute)
+    # default daily
+    return CronTrigger(hour=hour, minute=minute)
+
+
+def start() -> None:
+    """Create and start the scheduler, then load enabled schedules."""
+    global _scheduler
+    if _scheduler is not None:
+        return
+    _scheduler = BackgroundScheduler(timezone="UTC")
+    _scheduler.start()
+    logger.info("Scheduler started.")
+    reload_jobs()
+
+
+def shutdown() -> None:
+    """Stop the scheduler (called on app shutdown)."""
+    global _scheduler
+    if _scheduler is not None:
+        try:
+            _scheduler.shutdown(wait=False)
+        except Exception:  # pragma: no cover
+            pass
+        _scheduler = None
+        logger.info("Scheduler stopped.")
+
+
+def reload_jobs() -> int:
+    """Reload all jobs from the database. Returns the number registered."""
+    if _scheduler is None:
+        return 0
+
+    # Clear existing jobs.
+    for job in _scheduler.get_jobs():
+        job.remove()
+
+    count = 0
+    db = SessionLocal()
+    try:
+        schedules = db.query(Schedule).filter(Schedule.is_enabled.is_(True)).all()
+        for sched in schedules:
+            _register(sched)
+            count += 1
+    finally:
+        db.close()
+
+    logger.info("Loaded %s scheduled job(s).", count)
+    return count
+
+
+def sync_project(project_id: int) -> None:
+    """Re-sync a single project's job after its schedule changes."""
+    if _scheduler is None:
+        return
+
+    # Remove existing job if present.
+    existing = _scheduler.get_job(_job_id(project_id))
+    if existing:
+        existing.remove()
+
+    db = SessionLocal()
+    try:
+        sched = (
+            db.query(Schedule)
+            .filter(Schedule.project_id == project_id, Schedule.is_enabled.is_(True))
+            .one_or_none()
+        )
+        if sched is not None:
+            _register(sched)
+    finally:
+        db.close()
+
+
+def _register(sched: Schedule) -> None:
+    """Add a job for an enabled schedule and persist its next run time."""
+    if _scheduler is None:
+        return
+    try:
+        trigger = _build_trigger(sched)
+        job = _scheduler.add_job(
+            _run_scheduled_backup,
+            trigger=trigger,
+            id=_job_id(sched.project_id),
+            args=[sched.project_id],
+            replace_existing=True,
+            misfire_grace_time=3600,
+            coalesce=True,
+        )
+        # Persist next run time for display.
+        if job.next_run_time is not None:
+            db = SessionLocal()
+            try:
+                row = db.get(Schedule, sched.id)
+                if row is not None:
+                    row.next_run_at = job.next_run_time
+                    db.commit()
+            finally:
+                db.close()
+    except Exception:  # pragma: no cover
+        logger.exception("Failed to register schedule for project %s", sched.project_id)
+
+
+def is_running() -> bool:
+    """Return True if the scheduler is active."""
+    return _scheduler is not None and _scheduler.running

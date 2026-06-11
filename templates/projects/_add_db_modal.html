@@ -1,0 +1,80 @@
+{#
+  Add Database source modal.
+  Lets users add a MySQL or PostgreSQL source. The source type toggles
+  the default port hint. Submits to the project's add-source endpoint.
+#}
+<div
+  id="modal-add-db"
+  class="quenza-modal fixed inset-0 z-50 hidden items-center justify-center px-4"
+  aria-hidden="true"
+>
+  <div class="quenza-modal-backdrop absolute inset-0 bg-heading/30 backdrop-blur-sm" onclick="QuenzaModal.close('modal-add-db')"></div>
+
+  <div class="quenza-modal-panel relative w-full max-w-lg rounded-3xl border border-line bg-surface p-7 shadow-card-hover">
+    <div class="mb-5 flex items-center justify-between">
+      <h3 class="text-lg font-bold text-heading">Tambah Sumber Database</h3>
+      <button type="button" onclick="QuenzaModal.close('modal-add-db')" class="text-label transition-colors duration-quenza ease-quenza hover:text-secondary" aria-label="Tutup">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <form method="post" action="/projects/{{ project.id }}/sources/add" class="space-y-4">
+      {# DB type #}
+      <div>
+        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Tipe Database</label>
+        <div class="grid grid-cols-2 gap-2.5">
+          <label class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-canvas px-3 py-2.5 transition-all duration-quenza ease-quenza has-[:checked]:border-brand-teal has-[:checked]:bg-surface has-[:checked]:ring-2 has-[:checked]:ring-brand-teal/25">
+            <input type="radio" name="source_type" value="mysql" checked class="h-4 w-4 accent-brand-teal" data-default-port="3306" onchange="document.getElementById('db-port').placeholder='3306'" />
+            <span class="text-sm font-semibold text-heading">MySQL</span>
+          </label>
+          <label class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-canvas px-3 py-2.5 transition-all duration-quenza ease-quenza has-[:checked]:border-brand-teal has-[:checked]:bg-surface has-[:checked]:ring-2 has-[:checked]:ring-brand-teal/25">
+            <input type="radio" name="source_type" value="postgres" class="h-4 w-4 accent-brand-teal" data-default-port="5432" onchange="document.getElementById('db-port').placeholder='5432'" />
+            <span class="text-sm font-semibold text-heading">PostgreSQL</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="sm:col-span-2">
+          <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Label <span class="font-normal normal-case text-label">(opsional)</span></label>
+          <input name="label" type="text" placeholder="mis. DB Produksi"
+            class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+        </div>
+        <div>
+          <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Host</label>
+          <input name="db_host" type="text" required value="127.0.0.1"
+            class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+        </div>
+        <div>
+          <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Port</label>
+          <input id="db-port" name="db_port" type="number" placeholder="3306"
+            class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+        </div>
+        <div class="sm:col-span-2">
+          <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Nama Database</label>
+          <input name="db_name" type="text" required placeholder="mis. app_production"
+            class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+        </div>
+        <div>
+          <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">User</label>
+          <input name="db_user" type="text" placeholder="root"
+            class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+        </div>
+        <div>
+          <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Password</label>
+          <input name="db_password" type="password" placeholder="••••••••"
+            class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button type="button" onclick="QuenzaModal.close('modal-add-db')"
+          class="rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-all duration-quenza ease-quenza hover:text-heading">Batal</button>
+        <button type="submit"
+          class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
+          Tambah Database
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

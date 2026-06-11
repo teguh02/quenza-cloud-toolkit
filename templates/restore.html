@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Restore &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+{% include "partials/flash.html" %}
+
+<div class="space-y-6">
+  {# Safety note #}
+  <div class="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
+    <span class="mt-0.5 shrink-0 text-blue-500">
+      <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    </span>
+    <div>
+      <p class="text-sm font-semibold text-blue-700">Restore bersifat pasif & aman</p>
+      <p class="mt-0.5 text-xs text-blue-600/80">Quenza hanya mengunduh arsip dan mengekstraknya ke direktori tujuan. Tidak ada aksi otomatis (tanpa import database atau eksekusi perintah).</p>
+    </div>
+  </div>
+
+  {% if destinations %}
+  <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+
+    {# Step 1 + 2: select destination & archive #}
+    <div class="space-y-6 lg:col-span-2">
+      <section class="rounded-3xl border border-line bg-surface p-6 shadow-card">
+        <h2 class="text-base font-bold text-heading">1. Pilih Destinasi</h2>
+        <p class="mt-0.5 text-xs text-secondary">Sumber arsip yang akan dipulihkan.</p>
+
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <select id="restore-dest" onchange="QuenzaRestore.loadArchives()"
+            class="flex-1 rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25">
+            <option value="">— Pilih destinasi —</option>
+            {% for d in destinations %}
+            <option value="{{ d.id }}">{{ d.name }} ({{ d.dest_type.value }})</option>
+            {% endfor %}
+          </select>
+          <button type="button" id="restore-refresh" onclick="QuenzaRestore.loadArchives()"
+            class="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-surface text-secondary transition-all duration-quenza ease-quenza hover:border-brand-teal/30 hover:text-heading" aria-label="Muat ulang">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <section class="rounded-3xl border border-line bg-surface p-6 shadow-card">
+        <h2 class="text-base font-bold text-heading">2. Pilih Arsip</h2>
+        <p class="mt-0.5 text-xs text-secondary">Daftar file backup tersedia di destinasi terpilih.</p>
+
+        <div id="restore-archives" class="mt-4 min-h-[160px]">
+          <div class="flex h-[160px] items-center justify-center rounded-2xl border border-dashed border-line bg-canvas text-sm text-label">
+            Pilih destinasi untuk melihat arsip.
+          </div>
+        </div>
+      </section>
+    </div>
+
+    {# Step 3: target + run #}
+    <div>
+      <section class="sticky top-6 rounded-3xl border border-line bg-surface p-6 shadow-card">
+        <h2 class="text-base font-bold text-heading">3. Tujuan & Eksekusi</h2>
+        <p class="mt-0.5 text-xs text-secondary">Ekstrak arsip ke direktori ini.</p>
+
+        <form method="post" action="/restore/run" class="mt-4 space-y-4"
+          onsubmit="return QuenzaRestore.onSubmit(this);">
+          <input type="hidden" name="destination_id" id="restore-dest-id" />
+          <input type="hidden" name="archive_ref" id="restore-archive-ref" />
+          <input type="hidden" name="archive_name" id="restore-archive-name" />
+
+          <div>
+            <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Arsip Terpilih</label>
+            <div id="restore-selected" class="truncate rounded-xl bg-canvas px-4 py-2.5 font-mono text-xs text-secondary">Belum dipilih</div>
+          </div>
+
+          <div>
+            <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Direktori Tujuan</label>
+            <input type="text" name="target_dir" required placeholder="mis. D:\Restore atau /var/restore"
+              class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+            <p class="mt-1.5 text-[11px] text-label">Direktori akan dibuat jika belum ada.</p>
+          </div>
+
+          <button type="submit" id="restore-submit" disabled
+            class="w-full rounded-xl bg-brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50">
+            Jalankan Restore
+          </button>
+        </form>
+      </section>
+    </div>
+  </div>
+  {% else %}
+  <div class="flex min-h-[320px] items-center justify-center rounded-3xl border border-dashed border-line bg-surface">
+    <div class="max-w-sm text-center">
+      <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-pastel-purple text-purple-500">
+        {% include "partials/icons/restore.html" %}
+      </div>
+      <h3 class="mt-5 text-lg font-bold text-heading">Belum ada destinasi</h3>
+      <p class="mt-1.5 text-sm text-secondary">Tambahkan destinasi terlebih dahulu untuk dapat memulihkan arsip.</p>
+      <a href="/destinations" class="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03]">
+        Kelola Destinations
+      </a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/restore.js"></script>
+{% endblock %}
