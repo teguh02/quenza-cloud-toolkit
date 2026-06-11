@@ -11,6 +11,39 @@ Belum ada perubahan yang menunggu rilis.
 
 ---
 
+## [1.3.0] - 2026-06-11
+
+Management Console (`toolkit.py`) dan perbaikan installer.
+
+### Ditambahkan
+- **`toolkit.py` — Management Console** (interaktif + CLI) untuk mengelola
+  instalasi tanpa instal ulang:
+  - Regenerate / set **Master Password**, regenerate `SECRET_KEY` &
+    `ENCRYPTION_KEY` (dengan peringatan keras).
+  - Ubah **Public URL** / `GOOGLE_REDIRECT_URI`.
+  - Kelola layanan: **status / start / stop / restart** + lihat log
+    (deteksi otomatis systemd, dengan fallback manual; Windows best-effort).
+  - Ringkasan konfigurasi `.env` (nilai rahasia disembunyikan).
+  - **Backup manual** sebuah project langsung dari terminal.
+- **Cek & jalankan update** (`toolkit.py check-update` / `update [--yes]`):
+  - Deteksi versi via **git SHA** (`HEAD` vs `origin/main`); fallback
+    **GitHub API** untuk instalasi non-git.
+  - Pembaruan via `git reset --hard` (git) atau **unduh arsip + salin aman**
+    (non-git) yang **mempertahankan** `.env`, `.venv`, database, dan
+    `backups/`; lalu pasang ulang dependencies dan tawarkan restart layanan.
+
+### Diperbaiki
+- **Master Password & jenis layanan kosong di ringkasan installer.** Akar
+  masalah: `run_step` menjalankan fungsi tahap dalam *pipeline subshell*
+  sehingga variabel global (`MASTER_PASSWORD`, `SERVICE_KIND`) hilang.
+  Diperbaiki memakai **process substitution** agar variabel bertahan.
+
+### Keamanan
+- Installer menulis Master Password awal ke `.initial_master_password.txt`
+  (izin 600) sebagai cadangan, dengan instruksi menyalin lalu menghapusnya.
+
+---
+
 ## [1.2.1] - 2026-06-11
 
 Perbaikan ketangguhan installer (lingkungan Debian/Ubuntu).
@@ -121,6 +154,7 @@ Rilis awal Quenza Cloud Toolkit (Fase 1–5).
 ---
 
 [Belum Dirilis]: https://github.com/teguh02/quenza-cloud-toolkit/compare/main...HEAD
+[1.3.0]: https://github.com/teguh02/quenza-cloud-toolkit/commits/main
 [1.2.1]: https://github.com/teguh02/quenza-cloud-toolkit/commits/main
 [1.2.0]: https://github.com/teguh02/quenza-cloud-toolkit/commits/main
 [1.1.0]: https://github.com/teguh02/quenza-cloud-toolkit/commits/main

@@ -12,47 +12,25 @@ sederhana, aman, dan terpusat. Mengikuti **Quenza Design System**.
 ## Tampilan Aplikasi
 
 Antarmuka modern, bersih, dan responsif yang mengikuti **Quenza Design
-System** — gradasi hijau-teal, kartu rounded, dan animasi halus di setiap
-interaksi. Dirancang agar manajemen backup terasa ringan dan menyenangkan.
+System** — gradasi hijau-teal, kartu rounded, shadow halus, dan animasi
+lembut di setiap interaksi. Dirancang agar manajemen backup terasa ringan,
+intuitif, dan menyenangkan: dari dashboard yang informatif, manajemen project
+yang fleksibel, file manager terintegrasi, multi-destinasi penyimpanan,
+penjadwalan otomatis, hingga restore yang aman.
 
-### Dashboard yang Informatif
-Pantau seluruh aktivitas backup dalam satu layar: kartu statistik real-time,
-grafik tren backup berhasil vs gagal, Quick Actions, dan Recent Activity.
+![Quenza Cloud Toolkit - 1](static/img/screenshot-1.png)
 
-![Dashboard Quenza Cloud Toolkit](https://trello.com/1/cards/6a2a4b63ff61eb2b9763dfbb/attachments/6a2a4b777e4866f911adb5f7/previews/6a2a4b787e4866f911adb608/download/image.webp)
+![Quenza Cloud Toolkit - 2](static/img/screenshot-2.png)
 
-### Manajemen Project yang Fleksibel
-Kelola banyak project backup, tiap project bebas menentukan sumber, format
-arsip, destinasi, dan jadwalnya sendiri.
+![Quenza Cloud Toolkit - 3](static/img/screenshot-3.png)
 
-![Manajemen Project](https://trello.com/1/cards/6a2a4b63ff61eb2b9763dfbb/attachments/6a2a4c28e1d1a7f0361dc903/previews/6a2a4c28e1d1a7f0361dc962/download/image.webp)
+![Quenza Cloud Toolkit - 4](static/img/screenshot-4.png)
 
-### Integrated File Manager
-Jelajahi direktori server langsung dari aplikasi — pilih folder/file dengan
-checkbox, navigasi breadcrumb, dan backup direktori secara rekursif.
+![Quenza Cloud Toolkit - 5](static/img/screenshot-5.png)
 
-![Integrated File Manager](https://trello.com/1/cards/6a2a4b63ff61eb2b9763dfbb/attachments/6a2a4c02f624fc9145be8802/previews/6a2a4c03f624fc9145be8851/download/image.webp)
+![Quenza Cloud Toolkit - 6](static/img/screenshot-6.png)
 
-### Multi-Destinasi Penyimpanan
-Kirim hasil backup ke Local, Amazon S3, Google Drive (OAuth), FTP, atau
-SCP/SSH — selektif per project, dengan kredensial terenkripsi.
-
-![Destinations](https://trello.com/1/cards/6a2a4b63ff61eb2b9763dfbb/attachments/6a2a4bf4caf0fd04fad3ea03/previews/6a2a4bf5caf0fd04fad3ea42/download/image.webp)
-
-### Penjadwalan Backup Otomatis
-Atur jadwal harian, mingguan, atau bulanan per project — berjalan otomatis
-mengikuti zona waktu yang Anda tentukan.
-
-![Penjadwalan](https://trello.com/1/cards/6a2a4b63ff61eb2b9763dfbb/attachments/6a2a4be93d4b98732bb898fd/previews/6a2a4be93d4b98732bb8992c/download/image.webp)
-
-### Restore Aman & Riwayat Lengkap
-Pulihkan data dengan aman (download + extract, tanpa aksi otomatis) dan
-telusuri seluruh riwayat eksekusi lewat History/Logs.
-
-![Restore & History](https://trello.com/1/cards/6a2a4b63ff61eb2b9763dfbb/attachments/6a2a4bdc9586954cd6549bd8/previews/6a2a4bdd9586954cd6549bf7/download/image.webp)
-
-> Catatan: bila gambar di atas tidak tampil, kemungkinan tautan sumber
-> memerlukan autentikasi. Lihat aplikasi secara langsung setelah instalasi.
+![Quenza Cloud Toolkit - 7](static/img/screenshot-7.png)
 
 ---
 
@@ -410,3 +388,194 @@ Lihat detail di [`docs/INSTALL.md`](docs/INSTALL.md).
 - [x] **Fase 3** — Manajemen Project & Integrated File Manager
 - [x] **Fase 4** — Mesin Backup & Destinations (S3, Google Drive, scheduling)
 - [x] **Fase 5** — Restore, Logging & Penyempurnaan
+
+---
+
+## Future Work (Rencana Pengembangan)
+
+Bagian ini mendokumentasikan rencana fitur berikutnya secara detail agar
+kontributor lain (manusia maupun AI) dapat melanjutkan dengan konteks penuh.
+Status: **belum dikerjakan** (perencanaan). Urutan implementasi yang disarankan:
+**FW#3 → FW#1 → FW#2** (FW#3 menjadi fondasi; backup Docker menumpang
+mekanisme job FW#3).
+
+### Konteks arsitektur saat ini (penting dipahami dulu)
+
+- **Backup berjalan sinkron** di request handler
+  (`app/routes/project_routes.py` → `project_run_backup` memanggil
+  `backup_service.run_backup` yang **memblokir** lalu redirect). Scheduler
+  (`app/scheduler.py` → `_run_scheduled_backup`) memanggil hal yang sama di
+  thread APScheduler.
+- **`BackupLog`** (`app/models.py`) ditulis **sekali di akhir** (fungsi
+  `_finalize` di `backup_service.py`) — tidak ada state `running`, progres,
+  atau langkah. Halaman **History** (`app/routes/history_routes.py`,
+  `templates/history.html`) hanya menampilkan riwayat yang sudah selesai.
+- Backup memiliki **5 tahap diskret** yang jelas di `backup_service.run_backup`:
+  (1) staging dir, (2) kumpulkan sumber + dump DB, (3) buat arsip,
+  (4) upload per-destinasi, (5) finalize. Ideal untuk progress reporting.
+- **APScheduler `BackgroundScheduler` sudah berjalan** in-process
+  (`app/scheduler.py`) — dapat dipakai untuk eksekusi background tanpa
+  dependency baru.
+- Adapter destinasi modular di `app/services/destinations/` (+ `registry.py`)
+  — pola yang sama dipakai untuk menambah "Docker sebagai sumber backup".
+- Kredensial sensitif **dienkripsi** via `app/services/crypto.py` (Fernet,
+  butuh `ENCRYPTION_KEY`).
+
+---
+
+### FW#3 — Backup di latar belakang + monitoring realtime
+
+**Tujuan:** Backup (via tombol "Backup Sekarang"/"Run Backup" maupun
+penjadwalan) berjalan di **latar belakang** (tidak memblokir HTTP request) dan
+**termonitor realtime** per-proses lewat menu **History**.
+
+**Keputusan desain:**
+- Eksekusi: **in-process background** (ThreadPoolExecutor / APScheduler yang
+  sudah ada) — tanpa dependency broker baru.
+- Realtime: **polling JSON** tiap 2–3 detik (sederhana, andal di belakang
+  reverse proxy; tanpa SSE/WebSocket).
+- State job: **tabel baru `backup_jobs`**; `BackupLog` tetap sebagai catatan
+  akhir/ringkas.
+
+**Model baru `BackupJob`** (`app/models.py`):
+- `id`, `project_id`, `project_name`, `action` (`backup`/`restore`/`docker`),
+  `trigger` (`manual`/`schedule`).
+- `status`: `queued | running | success | partial | failed | cancelled`.
+- `progress` (0–100), `current_step` (teks, mis. "Membuat dump MySQL…",
+  "Mengunggah ke S3…"), `total_steps`, `step_index`.
+- `steps_json` (riwayat langkah + timestamp + status per langkah), `message`.
+- `created_at`, `started_at`, `finished_at`, `log_id` (FK ke `BackupLog` final).
+
+**Eksekusi (service baru `job_service.py`):**
+- `enqueue_backup(project_id, trigger)` → buat `BackupJob(status=queued)` →
+  submit ke ThreadPoolExecutor terbatas (mis. 2–4 worker) → kembalikan
+  `job_id` **segera**.
+- Refactor `backup_service.run_backup` agar menerima **callback progress**
+  `on_progress(step_index, label, pct)` yang meng-update `BackupJob` di DB pada
+  tiap transisi tahap. Logika inti tidak berubah — hanya menambah hook.
+- Tombol Run Backup & scheduler memanggil `enqueue_backup` (bukan `run_backup`
+  langsung) → request balik **instan** (redirect ke History/detail + `job_id`).
+- **Kunci per-project** agar project yang sama tidak di-backup paralel.
+
+**Monitoring di History:**
+- Endpoint JSON baru: `GET /api/jobs/active` (daftar job `queued`/`running`)
+  dan `GET /api/jobs/{id}` (detail progres + langkah).
+- `templates/history.html` ditambah panel **"Proses Berjalan"** di atas tabel
+  riwayat: kartu job aktif dengan **progress bar** + langkah saat ini,
+  di-refresh `setInterval` fetch tiap 2–3 detik (JS baru `static/js/jobs.js`).
+  Job selesai → hilang dari panel aktif, muncul di tabel riwayat.
+- Opsional: badge jumlah job aktif di sidebar.
+
+**Batasan & catatan:**
+- In-process executor + polling **benar untuk 1 worker uvicorn**. Bila
+  `--workers > 1`, perlu **klaim job di level DB** (UPDATE atomik) agar tidak
+  dijalankan ganda; polling tetap aman karena membaca DB.
+- Job tidak persisten terhadap restart proses: saat startup, lakukan
+  **recovery sweep** — tandai job `running` yang terputus menjadi
+  `failed/interrupted`.
+- Fitur **cancel job** (opsional lanjutan): set flag, dicek antar-tahap.
+
+**Estimasi kompleksitas:** Sedang–Tinggi (refactor `backup_service` + model +
+2 endpoint + UI polling).
+
+---
+
+### FW#1 — Docker Management (container, image, volume, network)
+
+**Tujuan:** Modul baru untuk mengelola Docker dari UI Quenza.
+
+**Keputusan desain:**
+- **Modul terpisah** (menu "Docker" sendiri), paralel dengan backup.
+- Koneksi: **lokal + remote** (TCP/TLS).
+- Aksi: **kontrol penuh** (termasuk hapus/prune/create) — dengan konfirmasi
+  kuat & audit.
+
+**Dependency baru:** `docker` SDK Python (`pip install docker`). Lazy import +
+graceful bila SDK/daemon tidak tersedia (pola sama seperti adapter cloud).
+
+**Model `DockerHost`** (`app/models.py`):
+- `name`, `connection_type` (`local`/`tcp`), `base_url`
+  (mis. `unix:///var/run/docker.sock` atau `tcp://host:2376`),
+- TLS config (cert/key/ca) — **dienkripsi** via `crypto`.
+
+**`docker_service.py`** (wrapper SDK):
+- **Containers:** list, inspect, logs, start/stop/restart, remove (konfirmasi),
+  create/run (form image + port + env + volume).
+- **Images:** list, pull, inspect, remove, prune dangling.
+- **Volumes:** list, inspect, create, remove, prune.
+- **Networks:** list, inspect, create, remove, prune.
+
+**Routes `docker_routes.py`:** halaman `/docker` dengan tab
+(Containers/Images/Volumes/Networks), mutasi via POST+PRG, status live via
+endpoint JSON. UI `templates/docker.html` mengikuti Design System Quenza
+(badge status running/exited, ikon pastel). Aksi destruktif → modal konfirmasi
+(mis. ketik nama container). Tambah item "Docker" di sidebar.
+
+**⚠️ Risiko keamanan (WAJIB diperhatikan):**
+- **Akses Docker setara akses root.** Memberi UI kontrol penuh (prune/hapus/
+  create) pada aplikasi yang diekspos web sangat berisiko (container escape,
+  hapus data produksi). Mitigasi yang direkomendasikan:
+  - Aksi destruktif wajib **konfirmasi kuat** + dicatat ke **audit log**.
+  - Pertimbangkan toggle **"mode read-only"** di Settings, dan/atau wajib
+    masukkan ulang Master Password untuk aksi berbahaya.
+  - Remote TCP **wajib TLS** (jangan TCP polos).
+  - Socket `/var/run/docker.sock` butuh izin: service Quenza harus di grup
+    `docker` atau jalan sebagai root (implikasi keamanan tambahan).
+  - Kombinasi bind `0.0.0.0` + Docker full-control + proxy publik = permukaan
+    serangan besar → dokumentasikan peringatan + hardening.
+
+**Estimasi kompleksitas:** Tinggi (SDK, model host, 4 sub-modul CRUD, UI tab,
+keamanan).
+
+---
+
+### FW#2 — Docker Backup (container & volume)
+
+**Tujuan:** Backup container & volume Docker, memakai mekanisme job background
+& monitoring dari FW#3.
+
+**Keputusan desain:** Tipe **sumber backup baru** (selain
+directory/file/mysql/postgres):
+- **`docker_volume`** — backup isi named volume. Teknik standar: jalankan
+  container helper sementara
+  (`docker run --rm -v <volume>:/data -v <staging>:/backup alpine tar czf
+  /backup/vol.tar.gz -C /data .`), atau via SDK `get_archive` pada container
+  yang me-mount volume tersebut.
+- **`docker_container`** — `docker export` (tar filesystem) dan/atau
+  `docker commit` + `docker image save` (tar image). Pilihan di form
+  (export filesystem vs save image).
+
+**Integrasi:**
+- Buat `docker_dump_service.py` (sejajar `db_dump_service.py`) untuk menghasilkan
+  arsip volume/container ke staging dir.
+- Tambah cabang tipe sumber Docker di `backup_service.run_backup` — hasil
+  dibungkus ke arsip project dan diunggah ke destinasi seperti biasa
+  (konsisten dengan alur yang ada).
+
+**Risiko & catatan:**
+- Backup volume "live" tanpa menghentikan container bisa **tidak konsisten**
+  (mis. database aktif). Sediakan opsi stop → backup → start, atau peringatan
+  konsistensi.
+- Ukuran image/volume bisa besar → makin penting eksekusi background (FW#3) +
+  progres realtime.
+- **Restore** volume: ikuti filosofi restore pasif saat ini (download +
+  extract); restore langsung ke volume tujuan dipertimbangkan terpisah.
+
+**Estimasi kompleksitas:** Sedang (bergantung FW#1 untuk SDK/host & FW#3 untuk
+job/progres).
+
+---
+
+### Dampak lintas-sistem (untuk ketiga FW)
+
+- **Dependency baru:** `docker` (SDK Python) → update `requirements.txt`,
+  `install.sh`/`install.ps1`. Di server Linux butuh akses Docker daemon.
+- **Database:** tabel baru `backup_jobs` (FW#3) & `docker_hosts` (FW#1),
+  dibuat otomatis via `Base.metadata.create_all`.
+- **Keamanan:** kredensial Docker remote dienkripsi (Fernet, butuh
+  `ENCRYPTION_KEY`).
+- **Reverse proxy:** polling JSON aman tanpa konfigurasi khusus.
+- **Multi-worker uvicorn:** perlu job-claiming di level DB bila `--workers > 1`.
+- **Verifikasi:** fitur Docker butuh lingkungan ber-Docker untuk uji nyata;
+  pada sandbox, uji jalur kode dengan mock + graceful failure dan nyatakan
+  batasannya secara jujur.
