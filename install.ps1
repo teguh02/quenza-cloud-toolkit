@@ -303,10 +303,35 @@ function Get-Project {
 function Initialize-Venv {
     Set-Location $global:InstallDir
     $venvPy = Join-Path $global:InstallDir ".venv\Scripts\python.exe"
+
+    # Recreate if missing or broken (e.g. a previous failed run).
+    $needCreate = $false
     if (-not (Test-Path $venvPy)) {
+        $needCreate = $true
+    } else {
+        & $venvPy -c "import sys" 2>$null
+        if ($LASTEXITCODE -ne 0) { $needCreate = $true }
+    }
+
+    if ($needCreate) {
+        if (Test-Path (Join-Path $global:InstallDir ".venv")) {
+            Write-Log "   Membersihkan .venv yang tidak lengkap..." "DarkGray"
+            Remove-Item -LiteralPath (Join-Path $global:InstallDir ".venv") -Recurse -Force -ErrorAction SilentlyContinue
+        }
         & $script:PyBin -m venv .venv
         if ($LASTEXITCODE -ne 0) { throw "Gagal membuat virtual environment." }
     }
+
+    # Ensure pip exists inside the venv.
+    & $venvPy -m pip --version 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log "   pip tidak ada di venv - mencoba ensurepip..." "DarkGray"
+        & $venvPy -m ensurepip --upgrade 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            throw "pip tidak tersedia di virtual environment. Pasang ulang Python dengan pip disertakan."
+        }
+    }
+
     & $venvPy -m pip install --upgrade pip
     if ($LASTEXITCODE -ne 0) { throw "Gagal upgrade pip." }
     & $venvPy -m pip install -r requirements.txt

@@ -36,11 +36,12 @@ INSTALL_DIR=""; PORT="$DEFAULT_PORT"; PUBLIC_URL=""; HOST_IP="127.0.0.1"
 MASTER_PASSWORD=""; SUDO=""; LOG_FILE=""; CURRENT_STEP="inisialisasi"
 SERVICE_KIND=""   # systemd | cron | none
 STEP_NO=0; STEP_TOTAL=6   # progress counter for run_step
+IN_STEP=0                 # when 1, log() skips file append (tee handles it)
 
 # ==============================================================================
 # Logging helpers
 # ==============================================================================
-log()      { printf "%b\n" "$1"; [ -n "$LOG_FILE" ] && printf "%s\n" "$(printf "%b" "$1" | sed 's/\x1b\[[0-9;]*m//g')" >>"$LOG_FILE" 2>/dev/null || true; }
+log()      { printf "%b\n" "$1"; [ "$IN_STEP" = "1" ] && return 0; [ -n "$LOG_FILE" ] && printf "%s\n" "$(printf "%b" "$1" | sed 's/\x1b\[[0-9;]*m//g')" >>"$LOG_FILE" 2>/dev/null || true; }
 log_info() { log "${C_BLU}•${C_RESET} $1"; }
 log_ok()   { log "${C_GRN}✓${C_RESET} $1"; }
 log_warn() { log "${C_YEL}!${C_RESET} $1"; }
@@ -145,6 +146,7 @@ run_step() {
   log "\n${C_BOLD}${C_CYN}==> [${STEP_NO}/${STEP_TOTAL}] ${label}${C_RESET}"
 
   local rc=0
+  IN_STEP=1   # log_* inside the step go to screen only; tee handles the file
   if [ -n "$LOG_FILE" ]; then
     # Stream stdout+stderr live AND append to log (indented, dimmed).
     "$@" 2>&1 | _indent_stream | tee -a "$LOG_FILE"
@@ -153,6 +155,7 @@ run_step() {
     "$@" 2>&1 | _indent_stream
     rc=${PIPESTATUS[0]}
   fi
+  IN_STEP=0
 
   if [ "$rc" -eq 0 ]; then
     log "${C_GRN}✓ [${STEP_NO}/${STEP_TOTAL}] ${label} — selesai${C_RESET}"
@@ -255,26 +258,68 @@ ensure_python() {
   CURRENT_STEP="memeriksa Python"
   if find_python; then
     log_ok "Python ditemukan: $("$PY_BIN" --version 2>&1) (${PY_BIN})"
+  else
+    log_warn "Python ${MIN_PY_MINOR}+ tidak ditemukan."
+    if [ "$OS" = "linux" ] && [ -n "$PKG_MGR" ]; then
+      if install_python_linux >>"${LOG_FILE:-/dev/null}" 2>&1; then
+        if find_python; then
+          log_ok "Python terpasang: $("$PY_BIN" --version 2>&1)"
+        else
+          fail "Gagal memasang Python secara otomatis. Pasang Python ${MIN_PY_MINOR}+ lalu jalankan ulang."
+        fi
+      else
+        fail "Gagal memasang Python secara otomatis. Pasang Python ${MIN_PY_MINOR}+ lalu jalankan ulang."
+      fi
+    else
+      log_err "Python ${MIN_PY_MINOR}+ wajib dipasang lebih dulu."
+      if [ "$OS" = "macos" ]; then
+        log_info "macOS: pasang via Homebrew  ->  brew install python"
+        log_info "atau unduh dari https://www.python.org/downloads/macos/"
+      fi
+      fail "Python tidak tersedia."
+    fi
+  fi
+
+  ensure_python_venv
+}
+
+# Ensure the `venv` module and `ensurepip` actually work. On Debian/Ubuntu,
+# python3 and python3-venv/python3-pip are separate packages, so a bare
+# python3 may exist while `python -m venv` fails ("ensurepip is not available").
+ensure_python_venv() {
+  CURRENT_STEP="memeriksa modul venv & pip"
+  if "$PY_BIN" -c "import ensurepip, venv" >/dev/null 2>&1; then
+    log_ok "Modul venv & pip tersedia."
     return 0
   fi
 
-  log_warn "Python ${MIN_PY_MINOR}+ tidak ditemukan."
-  if [ "$OS" = "linux" ] && [ -n "$PKG_MGR" ]; then
-    if install_python_linux >>"${LOG_FILE:-/dev/null}" 2>&1; then
-      if find_python; then
-        log_ok "Python terpasang: $("$PY_BIN" --version 2>&1)"
-        return 0
-      fi
-    fi
-    fail "Gagal memasang Python secara otomatis. Pasang Python ${MIN_PY_MINOR}+ lalu jalankan ulang."
-  else
-    log_err "Python ${MIN_PY_MINOR}+ wajib dipasang lebih dulu."
-    if [ "$OS" = "macos" ]; then
-      log_info "macOS: pasang via Homebrew  ->  brew install python"
-      log_info "atau unduh dari https://www.python.org/downloads/macos/"
-    fi
-    fail "Python tidak tersedia."
+  log_warn "Modul venv/pip Python belum lengkap (umum di Debian/Ubuntu)."
+  if [ "$OS" = "linux" ] && [ "$PKG_MGR" = "apt-get" ]; then
+    # Determine exact minor version, e.g. 3.10 -> python3.10-venv
+    local pyver
+    pyver="$("$PY_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null)"
+    log_info "Memasang python${pyver}-venv & python3-pip..."
+    $SUDO apt-get update -y >>"${LOG_FILE:-/dev/null}" 2>&1 || true
+    # Try version-specific venv first, then generic, plus pip.
+    $SUDO apt-get install -y "python${pyver}-venv" python3-venv python3-pip >>"${LOG_FILE:-/dev/null}" 2>&1 \
+      || $SUDO apt-get install -y python3-venv python3-pip >>"${LOG_FILE:-/dev/null}" 2>&1 || true
+  elif [ "$OS" = "linux" ] && [ -n "$PKG_MGR" ]; then
+    case "$PKG_MGR" in
+      dnf)    $SUDO dnf install -y python3-pip >>"${LOG_FILE:-/dev/null}" 2>&1 || true ;;
+      yum)    $SUDO yum install -y python3-pip >>"${LOG_FILE:-/dev/null}" 2>&1 || true ;;
+      pacman) $SUDO pacman -Sy --noconfirm python-pip >>"${LOG_FILE:-/dev/null}" 2>&1 || true ;;
+      zypper) $SUDO zypper install -y python3-pip >>"${LOG_FILE:-/dev/null}" 2>&1 || true ;;
+    esac
   fi
+
+  # Re-verify.
+  if "$PY_BIN" -c "import ensurepip, venv" >/dev/null 2>&1; then
+    log_ok "Modul venv & pip kini tersedia."
+    return 0
+  fi
+
+  log_warn "Modul venv/pip masih belum lengkap — akan dicoba fallback get-pip saat membuat venv."
+  return 0
 }
 
 # ==============================================================================
@@ -418,12 +463,53 @@ download_project() {
 # ==============================================================================
 setup_venv() {
   cd "$INSTALL_DIR" || return 1
-  if [ ! -d ".venv" ]; then
-    "$PY_BIN" -m venv .venv || return 1
+  local vpy="./.venv/bin/python"
+
+  # Recreate the venv if missing OR broken (e.g. a previous failed run left a
+  # .venv without pip). A healthy venv must have a working python + pip.
+  local need_create=0
+  if [ ! -x "$vpy" ]; then
+    need_create=1
+  elif ! "$vpy" -c "import sys" >/dev/null 2>&1; then
+    need_create=1
   fi
-  # shellcheck disable=SC1091
-  ./.venv/bin/python -m pip install --upgrade pip || return 1
-  ./.venv/bin/python -m pip install -r requirements.txt || return 1
+
+  if [ "$need_create" -eq 1 ]; then
+    [ -d ".venv" ] && { echo "Membersihkan .venv yang tidak lengkap..."; rm -rf .venv; }
+    if ! "$PY_BIN" -m venv .venv; then
+      echo "venv standar gagal — mencoba tanpa pip lalu bootstrap get-pip..."
+      rm -rf .venv
+      "$PY_BIN" -m venv --without-pip .venv || return 1
+    fi
+  fi
+
+  # Ensure pip exists inside the venv (handles --without-pip and broken cases).
+  if ! "$vpy" -m pip --version >/dev/null 2>&1; then
+    echo "pip tidak ada di venv — mencoba ensurepip..."
+    if ! "$vpy" -m ensurepip --upgrade >/dev/null 2>&1; then
+      echo "ensurepip gagal — mengunduh get-pip.py..."
+      local getpip="/tmp/get-pip-$$.py"
+      if command -v curl >/dev/null 2>&1; then
+        curl -fsSL https://bootstrap.pypa.io/get-pip.py -o "$getpip" || return 1
+      elif command -v wget >/dev/null 2>&1; then
+        wget -q https://bootstrap.pypa.io/get-pip.py -O "$getpip" || return 1
+      else
+        echo "curl/wget tidak tersedia untuk mengunduh get-pip.py"; return 1
+      fi
+      "$vpy" "$getpip" || { rm -f "$getpip"; return 1; }
+      rm -f "$getpip"
+    fi
+  fi
+
+  # Final verification: pip must work now.
+  if ! "$vpy" -m pip --version >/dev/null 2>&1; then
+    echo "pip masih tidak tersedia di virtual environment."
+    echo "Coba pasang manual: sudo apt-get install -y python3-venv python3-pip"
+    return 1
+  fi
+
+  "$vpy" -m pip install --upgrade pip || return 1
+  "$vpy" -m pip install -r requirements.txt || return 1
 }
 
 # ==============================================================================
