@@ -45,20 +45,35 @@ def _run_scheduled_backup(project_id: int) -> None:
         logger.exception("Scheduled backup crashed for project %s", project_id)
 
 
+def _scheduler_timezone() -> str:
+    """Return the configured global timezone name (fallback UTC)."""
+    try:
+        from app.services import settings_service
+
+        return settings_service.get_timezone_name()
+    except Exception:  # pragma: no cover
+        return "UTC"
+
+
 def _build_trigger(sched: Schedule) -> CronTrigger:
-    """Translate a Schedule row into an APScheduler CronTrigger."""
+    """Translate a Schedule row into an APScheduler CronTrigger.
+
+    The trigger uses the configured global timezone so the user's chosen
+    hour/minute are interpreted in their local time.
+    """
     hour = int(sched.hour or 0)
     minute = int(sched.minute or 0)
     freq = (sched.frequency or "daily").lower()
+    tz = _scheduler_timezone()
 
     if freq == "weekly":
         dow = sched.day_of_week if sched.day_of_week is not None else 0
-        return CronTrigger(day_of_week=int(dow), hour=hour, minute=minute)
+        return CronTrigger(day_of_week=int(dow), hour=hour, minute=minute, timezone=tz)
     if freq == "monthly":
         dom = sched.day_of_month if sched.day_of_month is not None else 1
-        return CronTrigger(day=int(dom), hour=hour, minute=minute)
+        return CronTrigger(day=int(dom), hour=hour, minute=minute, timezone=tz)
     # default daily
-    return CronTrigger(hour=hour, minute=minute)
+    return CronTrigger(hour=hour, minute=minute, timezone=tz)
 
 
 def start() -> None:

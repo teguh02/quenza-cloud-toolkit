@@ -246,7 +246,7 @@ def _finalize(
         db.rollback()
         log_id = None
 
-    return {
+    result = {
         "ok": status == "success",
         "status": status,
         "message": message,
@@ -254,3 +254,13 @@ def _finalize(
         "duration_ms": duration_ms,
         "detail": detail,
     }
+
+    # Best-effort notification (never affects restore outcome).
+    try:
+        from app.services import notification_service
+
+        notification_service.notify_restore_result(result, source_name=dest_name or "")
+    except Exception:  # pragma: no cover
+        logger.exception("Restore notification dispatch failed")
+
+    return result

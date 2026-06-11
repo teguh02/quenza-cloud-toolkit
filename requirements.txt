@@ -22,10 +22,17 @@ SQLAlchemy==2.0.50
 # Scheduling (Phase 4)
 APScheduler==3.11.0
 
-# Cloud destinations (Phase 4)
+# Cloud destinations
 boto3==1.35.90
-# Google Drive & Mega are optional; imported lazily. Install to enable:
-#   pip install PyDrive2==1.21.3 mega.py==1.0.8
+# Google Drive (OAuth)
+google-auth==2.37.0
+google-auth-oauthlib==1.2.1
+google-api-python-client==2.157.0
+# SCP / SFTP (transfer over SSH). FTP uses the stdlib ftplib.
+paramiko==3.5.0
+
+# Secrets encryption (refresh tokens, etc.)
+cryptography==44.0.0
 
 # Dev/testing (TestClient)
 httpx==0.28.1

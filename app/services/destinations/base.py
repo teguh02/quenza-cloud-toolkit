@@ -69,8 +69,13 @@ class DestinationAdapter:
     def __init__(self, config: dict):
         self.config = config or {}
 
-    def upload(self, local_path: str, remote_name: str) -> UploadResult:
-        """Upload `local_path` to the destination as `remote_name`."""
+    def upload(self, local_path: str, remote_name: str, subfolder: str = "") -> UploadResult:
+        """Upload `local_path` to the destination as `remote_name`.
+
+        `subfolder` is an optional per-project subdirectory the destination
+        may use to keep archives organized (e.g. one folder per project).
+        Adapters that ignore it still work.
+        """
         raise NotImplementedError
 
     def test_connection(self) -> TestResult:

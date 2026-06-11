@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 from app.services.destinations.base import DestinationAdapter
+from app.services.destinations.ftp_adapter import FtpAdapter
 from app.services.destinations.gdrive_adapter import GDriveAdapter
 from app.services.destinations.local_adapter import LocalAdapter
-from app.services.destinations.mega_adapter import MegaAdapter
 from app.services.destinations.s3_adapter import S3Adapter
+from app.services.destinations.scp_adapter import ScpAdapter
 
 _ADAPTERS: dict[str, type[DestinationAdapter]] = {
     LocalAdapter.type_key: LocalAdapter,
     S3Adapter.type_key: S3Adapter,
     GDriveAdapter.type_key: GDriveAdapter,
-    MegaAdapter.type_key: MegaAdapter,
+    FtpAdapter.type_key: FtpAdapter,
+    ScpAdapter.type_key: ScpAdapter,
 }
 
 
@@ -63,26 +65,54 @@ _SPECS: list[dict] = [
         "icon": "cloud",
         "tone": "pastel-green",
         "fg": "text-brand-teal",
+        "oauth": True,
         "fields": [
-            {"name": "service_account_json", "label": "Service Account JSON",
-             "type": "textarea", "placeholder": "Tempel isi JSON atau path file",
-             "required": True, "secret": True},
             {"name": "folder_id", "label": "Folder ID", "type": "text",
-             "placeholder": "opsional", "required": False},
+             "placeholder": "opsional (dibuat otomatis jika kosong)", "required": False},
         ],
     },
     {
-        "key": "mega",
-        "label": "Mega.nz",
+        "key": "ftp",
+        "label": "FTP",
+        "icon": "cloud",
+        "tone": "pastel-blue",
+        "fg": "text-blue-500",
+        "fields": [
+            {"name": "host", "label": "Host", "type": "text", "required": True},
+            {"name": "port", "label": "Port", "type": "text",
+             "placeholder": "21", "required": False},
+            {"name": "user", "label": "Username", "type": "text", "required": False},
+            {"name": "password", "label": "Password", "type": "text",
+             "required": False, "secret": True},
+            {"name": "remote_dir", "label": "Direktori Tujuan", "type": "text",
+             "placeholder": "mis. /backups", "required": False},
+        ],
+    },
+    {
+        "key": "scp",
+        "label": "SCP / SSH",
         "icon": "cloud",
         "tone": "pastel-purple",
         "fg": "text-purple-500",
         "fields": [
-            {"name": "email", "label": "Email", "type": "text", "required": True},
+            {"name": "host", "label": "Host", "type": "text", "required": True},
+            {"name": "port", "label": "Port", "type": "text",
+             "placeholder": "22", "required": False},
+            {"name": "user", "label": "Username", "type": "text", "required": True},
+            {"name": "auth_method", "label": "Metode Autentikasi", "type": "select",
+             "options": [("password", "Password"), ("key", "Private Key")],
+             "required": False},
             {"name": "password", "label": "Password", "type": "text",
-             "required": True, "secret": True},
-            {"name": "folder", "label": "Folder", "type": "text",
-             "placeholder": "opsional", "required": False},
+             "required": False, "secret": True,
+             "help": "Isi jika metode = Password"},
+            {"name": "private_key", "label": "Private Key (PEM atau path)", "type": "textarea",
+             "required": False, "secret": True,
+             "help": "Isi jika metode = Private Key"},
+            {"name": "passphrase", "label": "Passphrase Key", "type": "text",
+             "required": False, "secret": True,
+             "help": "Opsional, jika key terenkripsi"},
+            {"name": "remote_dir", "label": "Direktori Tujuan", "type": "text",
+             "placeholder": "mis. /var/backups", "required": False},
         ],
     },
 ]

@@ -59,6 +59,31 @@ class Settings(BaseSettings):
         description="Path to the pg_dump executable.",
     )
 
+    # Secrets encryption (Fernet). Used to encrypt sensitive destination
+    # config such as Google Drive refresh tokens.
+    encryption_key: str = Field(
+        default="",
+        alias="ENCRYPTION_KEY",
+        description="Fernet key (urlsafe base64) for encrypting secrets.",
+    )
+
+    # Google Drive OAuth (Phase 4.5)
+    google_client_id: str = Field(
+        default="",
+        alias="GOOGLE_CLIENT_ID",
+        description="Google OAuth client ID.",
+    )
+    google_client_secret: str = Field(
+        default="",
+        alias="GOOGLE_CLIENT_SECRET",
+        description="Google OAuth client secret.",
+    )
+    google_redirect_uri: str = Field(
+        default="http://127.0.0.1:8000/destinations/gdrive/callback",
+        alias="GOOGLE_REDIRECT_URI",
+        description="OAuth redirect URI registered in Google Cloud Console.",
+    )
+
     # Application
     debug: bool = Field(
         default=True,
@@ -77,6 +102,15 @@ class Settings(BaseSettings):
     def is_configured(self) -> bool:
         """True when the minimum required secrets are present."""
         return bool(self.master_password_hash) and self.secret_key != "change-me"
+
+    @property
+    def google_oauth_ready(self) -> bool:
+        """True when Google Drive OAuth is fully configured."""
+        return bool(
+            self.google_client_id
+            and self.google_client_secret
+            and self.google_redirect_uri
+        )
 
 
 @lru_cache

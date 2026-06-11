@@ -21,6 +21,13 @@ def _is_archive(name: str) -> bool:
     return n.endswith(".zip") or n.endswith(".tar.gz") or n.endswith(".tgz")
 
 
+def _safe_segment(name: str) -> str:
+    """Sanitize a string into a safe single path segment."""
+    keep = "-_."
+    cleaned = "".join(c if (c.isalnum() or c in keep) else "_" for c in (name or ""))
+    return cleaned.strip("_/ ") or "project"
+
+
 class LocalAdapter(DestinationAdapter):
     """Copy the archive to a local directory.
 
@@ -34,13 +41,15 @@ class LocalAdapter(DestinationAdapter):
     def _target_dir(self) -> str:
         return (self.config.get("path") or "").strip()
 
-    def upload(self, local_path: str, remote_name: str) -> UploadResult:
+    def upload(self, local_path: str, remote_name: str, subfolder: str = "") -> UploadResult:
         target_dir = self._target_dir()
         if not target_dir:
             return UploadResult(ok=False, error="Path tujuan lokal belum diatur.")
 
         try:
             dest_dir = Path(target_dir)
+            if subfolder:
+                dest_dir = dest_dir / _safe_segment(subfolder)
             dest_dir.mkdir(parents=True, exist_ok=True)
             dest_path = dest_dir / remote_name
             shutil.copy2(local_path, dest_path)
@@ -73,7 +82,8 @@ class LocalAdapter(DestinationAdapter):
             if not d.is_dir():
                 return ListResult(ok=False, error="Direktori tidak ditemukan.")
             entries: list[ArchiveEntry] = []
-            for child in d.iterdir():
+            # Scan recursively so per-project subfolders are included.
+            for child in d.rglob("*"):
                 if child.is_file() and _is_archive(child.name):
                     try:
                         stat = child.stat()
@@ -83,9 +93,14 @@ class LocalAdapter(DestinationAdapter):
                         size = stat.st_size
                     except OSError:
                         modified, size = "", 0
+                    # Show a name relative to the destination root for clarity.
+                    try:
+                        display = str(child.relative_to(d))
+                    except ValueError:
+                        display = child.name
                     entries.append(
                         ArchiveEntry(
-                            name=child.name,
+                            name=display,
                             size=size,
                             modified=modified,
                             ref=str(child),

@@ -77,7 +77,8 @@ class DestinationType(str, enum.Enum):
     LOCAL = "local"
     S3 = "s3"
     GDRIVE = "gdrive"
-    MEGA = "mega"
+    FTP = "ftp"
+    SCP = "scp"
 
 
 # --- Core models ------------------------------------------------------------
@@ -173,7 +174,7 @@ class BackupSource(Base):
 
 
 class Destination(Base):
-    """A backup destination (Local/S3/Drive/Mega).
+    """A backup destination (Local/S3/Drive).
 
     Credentials/config are stored as a JSON-encoded string in `config_json`.
     """
@@ -280,3 +281,24 @@ class AppMeta(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<AppMeta key={self.key!r} value={self.value!r}>"
+
+
+class AppSetting(Base):
+    """Key/value store for application settings (timezone, notifications).
+
+    Values are stored as strings (JSON-encoded for structured data).
+    Sensitive values (SMTP password, Telegram token) are encrypted before
+    being placed here.
+    """
+
+    __tablename__ = "app_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<AppSetting key={self.key!r}>"

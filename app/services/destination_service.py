@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Destination, DestinationType
+from app.services import crypto
 from app.services.destinations import get_adapter
 from app.services.destinations.registry import get_spec
 
@@ -30,18 +31,48 @@ def _parse_type(value: str) -> DestinationType:
         raise ValueError("Tipe destinasi tidak valid.") from None
 
 
-def _build_config(dest_type: str, form: dict) -> dict:
-    """Extract only the fields declared in the type's spec from a form."""
+def _spec_secret_fields(dest_type: str) -> set[str]:
+    """Return the set of field names marked secret for a destination type."""
+    spec = get_spec(dest_type)
+    if not spec:
+        return set()
+    return {f["name"] for f in spec["fields"] if f.get("secret")}
+
+
+def _build_config(dest_type: str, form: dict, existing: dict | None = None) -> dict:
+    """Build a destination config from a submitted form.
+
+    Secret fields (marked `secret: True` in the spec) are encrypted at rest.
+    On edit, an empty secret value preserves the previously stored (already
+    encrypted) value so users don't need to retype secrets.
+
+    Raises:
+        ValueError: required field missing, or crypto not configured.
+    """
     spec = get_spec(dest_type)
     if spec is None:
         raise ValueError("Tipe destinasi tidak dikenal.")
+    existing = existing or {}
     config: dict = {}
     for field in spec["fields"]:
         name = field["name"]
         value = (form.get(name) or "").strip()
-        if field.get("required") and not value:
+        is_secret = bool(field.get("secret"))
+
+        if field.get("required") and not value and not (is_secret and existing.get(name)):
             raise ValueError(f"Field '{field['label']}' wajib diisi.")
-        config[name] = value
+
+        if is_secret:
+            if value:
+                try:
+                    config[name] = crypto.encrypt(value)
+                except crypto.CryptoNotConfigured as exc:
+                    raise ValueError(str(exc)) from exc
+            else:
+                # Preserve previously stored secret (already encrypted) if any.
+                config[name] = existing.get(name, "")
+        else:
+            config[name] = value
     return config
 
 
@@ -75,7 +106,12 @@ def create_destination(
 def update_destination(
     db: Session, dest_id: int, *, name: str, form: dict
 ) -> Destination:
-    """Update an existing destination's name and config."""
+    """Update an existing destination's name and config.
+
+    For OAuth-based destinations (e.g. Google Drive), secret fields such as
+    refresh_token/email are preserved from the existing config (they are not
+    part of the edit form).
+    """
     dest = get_destination(db, dest_id)
     if dest is None:
         raise ValueError("Destinasi tidak ditemukan.")
@@ -84,9 +120,52 @@ def update_destination(
     if not name:
         raise ValueError("Nama destinasi tidak boleh kosong.")
 
-    config = _build_config(dest.dest_type.value, form)
+    existing = parse_config(dest)
+    config = _build_config(dest.dest_type.value, form, existing=existing)
+
+    # Preserve OAuth-only fields that are not part of any form (Drive).
+    if dest.dest_type == DestinationType.GDRIVE:
+        for keep in ("refresh_token", "email"):
+            if existing.get(keep):
+                config[keep] = existing[keep]
+
     dest.name = name
     dest.config_json = json.dumps(config, ensure_ascii=False)
+    db.commit()
+    db.refresh(dest)
+    return dest
+
+
+def create_gdrive_destination(
+    db: Session, *, name: str, refresh_token: str, email: str, folder_id: str = ""
+) -> Destination:
+    """Create a Google Drive destination from an OAuth result.
+
+    The refresh token is encrypted at rest. Raises ValueError on bad input.
+    """
+    from app.services import crypto
+
+    name = (name or "").strip() or (email or "Google Drive")
+    if not refresh_token:
+        raise ValueError("Refresh token kosong.")
+
+    try:
+        enc_token = crypto.encrypt(refresh_token)
+    except crypto.CryptoNotConfigured as exc:
+        raise ValueError(str(exc)) from exc
+
+    config = {
+        "refresh_token": enc_token,
+        "email": (email or "").strip(),
+        "folder_id": (folder_id or "").strip(),
+    }
+    dest = Destination(
+        name=name,
+        dest_type=DestinationType.GDRIVE,
+        config_json=json.dumps(config, ensure_ascii=False),
+        is_active=True,
+    )
+    db.add(dest)
     db.commit()
     db.refresh(dest)
     return dest
@@ -143,8 +222,19 @@ def display_summary(dest: Destination) -> str:
         prefix = cfg.get("prefix", "")
         return f"s3://{bucket}/{prefix}".rstrip("/")
     if t == "gdrive":
+        email = cfg.get("email", "")
         fid = cfg.get("folder_id", "")
-        return f"Folder: {fid}" if fid else "Service Account"
-    if t == "mega":
-        return cfg.get("email", "")
+        if email and fid:
+            return f"{email} · folder {fid}"
+        return email or (f"Folder: {fid}" if fid else "Google Drive")
+    if t == "ftp":
+        host = cfg.get("host", "")
+        rd = cfg.get("remote_dir", "")
+        return f"ftp://{host}/{rd.strip('/')}".rstrip("/")
+    if t == "scp":
+        host = cfg.get("host", "")
+        user = cfg.get("user", "")
+        rd = cfg.get("remote_dir", "")
+        prefix = f"{user}@{host}" if user else host
+        return f"{prefix}:{rd}" if rd else prefix
     return ""

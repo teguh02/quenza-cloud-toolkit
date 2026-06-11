@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Dokumentasi &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
+
+  {# ============== Table of contents ============== #}
+  <aside class="lg:col-span-1">
+    <nav class="sticky top-6 rounded-3xl border border-line bg-surface p-5 shadow-card">
+      <p class="mb-3 text-xs font-bold uppercase tracking-wide text-label">Daftar Isi</p>
+      <ul class="space-y-1 text-sm">
+        {% set toc = [
+          ("intro", "Pengantar"),
+          ("getting-started", "Memulai"),
+          ("projects", "Projects & Sumber"),
+          ("filemanager", "File Manager"),
+          ("destinations", "Destinations"),
+          ("schedule", "Penjadwalan"),
+          ("manual-backup", "Backup Manual"),
+          ("restore", "Restore"),
+          ("settings", "Settings & Notifikasi"),
+          ("security", "Keamanan"),
+          ("faq", "FAQ / Troubleshooting")
+        ] %}
+        {% for anchor, label in toc %}
+        <li>
+          <a href="#{{ anchor }}" class="block rounded-lg px-3 py-2 text-secondary transition-colors duration-quenza ease-quenza hover:bg-canvas hover:text-heading">{{ label }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </nav>
+  </aside>
+
+  {# ============== Content ============== #}
+  <div class="space-y-6 lg:col-span-3">
+
+    {# Intro #}
+    <section id="intro" class="scroll-mt-6 rounded-3xl border border-line bg-surface p-7 shadow-card">
+      <div class="flex items-center gap-3">
+        <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-gradient text-white">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </div>
+        <h2 class="text-xl font-bold text-heading">Pengantar</h2>
+      </div>
+      <div class="mt-4 space-y-3 text-sm leading-relaxed text-secondary">
+        <p><span class="font-semibold text-heading">Quenza Cloud Toolkit</span> adalah aplikasi manajemen backup &amp; restore data server yang sederhana, aman, dan terpusat. Anda dapat membuat project backup, memilih sumber (direktori, file, database), menjadwalkan backup otomatis, dan mengirim hasilnya ke berbagai tujuan penyimpanan.</p>
+        <p>Aplikasi memakai sistem <span class="font-semibold text-heading">Master Password tunggal</span> — tidak ada registrasi pengguna. Cocok untuk penggunaan internal/terbatas.</p>
+      </div>
+    </section>
+
+    {# Getting started #}
+    <section id="getting-started" class="scroll-mt-6 rounded-3xl border border-line bg-surface p-7 shadow-card">
+      <h2 class="text-lg font-bold text-heading">Memulai</h2>
+      <ol class="mt-4 space-y-3 text-sm leading-relaxed text-secondary">
+        <li class="flex gap-3"><span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-pastel-blue text-xs font-bold text-blue-600">1</span><span><span class="font-semibold text-heading">Login</span> menggunakan Master Password yang dikonfigurasi oleh administrator (variabel <span class="font-mono text-xs">MASTER_PASSWORD_HASH</span> di <span class="font-mono text-xs">.env</span>).</span></li>
+        <li class="flex gap-3"><span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-pastel-blue text-xs font-bold text-blue-600">2</span><span>Atur <span class="font-semibold text-heading">Zona Waktu</span> di menu Settings agar penjadwalan &amp; waktu tampil sesuai lokasi Anda.</span></li>
+        <li class="flex gap-3"><span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-pastel-blue text-xs font-bold text-blue-600">3</span><span>Buat <span class="font-semibold text-heading">Destination</span> (tujuan penyimpanan), lalu buat <span class="font-semibold text-heading">Project</span> dan pilih destinasinya.</span></li>
+        <li class="flex gap-3"><span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-pastel-blue text-xs font-bold text-blue-600">4</span><span>Jalankan backup manual atau aktifkan jadwal otomatis.</span></li>
+      </ol>
+    </section>
+
+    {# Projects #}
+    <section id="projects" class="scroll-mt-6 rounded-3xl border border-line bg-surface p-7 shadow-card">
+      <h2 class="text-lg font-bold text-heading">Projects &amp; Sumber Backup</h2>
+      <div class="mt-4 space-y-3 text-sm leading-relaxed text-secondary">
+        <p>Sebuah <span class="font-semibold text-heading">Project</span> adalah satu unit konfigurasi backup. Di dalamnya Anda menentukan sumber data, format arsip, destinasi, dan jadwal.</p>
+        <p>Buka <span class="font-semibold text-heading">Projects → New Project</span>, beri nama, lalu pilih format output:</p>
+        <ul class="ml-1 space-y-1.5">
+          <li class="flex gap-2"><span class="text-brand-teal">•</span> <span class="font-mono text-xs">.zip</span> — kompatibel luas, mudah dibuka di mana saja.</li>
+          <li class="flex gap-2"><span class="text-brand-teal">•</span> <span class="font-mono text-xs">.tar.gz</span> — umum di lingkungan Linux/Unix.</li>
+        </ul>
+        <p class="pt-1">Di detail project, tambahkan <span class="font-semibold text-heading">sumber backup</span> secara fleksibel:</p>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div class="rounded-2xl border border-line bg-canvas p-4">
+            <p class="text-sm font-semibold text-heading">Direktori &amp; File</p>
+            <p class="mt-1 text-xs">Dipilih lewat File Manager. Direktori di-backup secara <span class="font-semibold">rekursif</span> (semua sub-folder &amp; file ikut).</p>
+          </div>
+          <div class="rounded-2xl border border-line bg-canvas p-4">
+            <p class="text-sm font-semibold text-heading">Database MySQL &amp; PostgreSQL</p>
+            <p class="mt-1 text-xs">Menggunakan <span class="font-mono">mysqldump</span> / <span class="font-mono">pg_dump</span>. Hasil dump disertakan ke dalam arsip.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# File Manager #}
+    <section id="filemanager" class="scroll-mt-6 rounded-3xl border border-line bg-surface p-7 shadow-card">
+      <h2 class="text-lg font-bold text-heading">Integrated File Manager</h2>
+      <div class="mt-4 space-y-3 text-sm leading-relaxed text-secondary">
+        <p>Saat menambah sumber direktori/file, gunakan <span class="font-semibold text-heading">File Manager</span> bawaan untuk menjelajah filesystem server.</p>
+        <ul class="ml-1 space-y-1.5">
+          <li class="flex gap-2"><span class="text-brand-teal">•</span> Panel kiri menampilkan struktur folder; panel kanan menampilkan isi dengan checkbox.</li>
+          <li class="flex gap-2"><span class="text-brand-teal">•</span> Gunakan breadcrumb, tombol naik level, dan refresh untuk navigasi.</li>
+          <li class="flex gap-2"><span class="text-brand-teal">•</span> Centang folder/file yang ingin di-backup, lalu klik <span class="font-semibold">Tambahkan Sumber</span>.</li>
+        </ul>
+        <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
+          <span class="font-semibold">Tips:</span> cukup centang folder induk — seluruh isinya (termasuk sub-folder bertingkat) otomatis ikut saat backup dijalankan. Isi folder dibaca ulang setiap kali backup berjalan, jadi file baru selalu tercakup.
+        </div>
+      </div>
+    </section>
+
+    {# Destinations #}
+    <section id="destinations" class="scroll-mt-6 rounded-3xl border border-line bg-surface p-7 shadow-card">
+      <h2 class="text-lg font-bold text-heading">Destinations (Tujuan Backup)</h2>
+      <div class="mt-4 space-y-4 text-sm leading-relaxed text-secondary">
+        <p>Destinasi dikelola terpisah di menu <span class="font-semibold text-heading">Destinations</span>, lalu dipilih per-project (satu project bisa beberapa destinasi sekaligus). Hasil backup otomatis dirapikan ke dalam sub-folder per project.</p>
+
+        <div class="space-y-3">
+          <div class="rounded-2xl border border-line bg-canvas p-4">
+            <p class="flex items-center gap-2 text-sm font-semibold text-heading"><span class="flex h-7 w-7 items-center justify-center rounded-lg bg-pastel-blue text-blue-500">L</span> Local</p>
+            <p class="mt-1.5 text-xs">Salin arsip ke direktori pada server ini. Cukup isi path tujuan; folder dibuat otomatis bila belum ada.</p>
+          </div>
+          <div class="rounded-2xl border border-line bg-canvas p-4">
+            <p class="flex items-center gap-2 text-sm font-semibold text-heading"><span class="flex h-7 w-7 items-center justify-center rounded-lg bg-pastel-orange text-amber-500">S</span> Amazon S3</p>
+            <p class="mt-1.5 text-xs">Isi bucket, region, dan kredensial (Access Key &amp; Secret). Mendukung endpoint S3-compatible (MinIO, Wasabi, dll). Bila prefix dikosongkan, arsip ditempatkan di <span class="font-mono">quenza-backups/&lt;project&gt;/</span>.</p>
+          </div>
+          <div class="rounded-2xl border border-line bg-canvas p-4">
+            <p class="flex items-center gap-2 text-sm font-semibold text-heading"><span class="flex h-7 w-7 items-center justify-center rounded-lg bg-pastel-green text-brand-teal">G</span> Google Drive</p>
+            <p class="mt-1.5 text-xs">Klik <span class="font-semibold">Connect Google Drive</span> dan login dengan akun Anda (OAuth). Backup masuk ke Drive akun tersebut. Bila Folder ID dikosongkan, sistem membuat folder otomatis dan menyimpannya. Memerlukan <span class="font-mono">GOOGLE_CLIENT_ID/SECRET</span> &amp; <span class="font-mono">ENCRYPTION_KEY</span> di server.</p>
+          </div>
+          <div class="rounded-2xl border border-line bg-canvas p-4">
+            <p class="flex items-center gap-2 text-sm font-semibold text-heading"><span class="flex h-7 w-7 items-center justify-center rounded-lg bg-pastel-blue text-blue-500">F</span> FTP</p>
+            <p class="mt-1.5 text-xs">Isi host, port (default 21), user, password, dan direktori tujuan. Direktori dibuat otomatis bila perlu.</p>
+          </div>
+          <div class="rounded-2xl border border-line bg-canvas p-4">
+            <p class="flex items-center gap-2 text-sm font-semibold text-heading"><span class="flex h-7 w-7 items-center justify-center rounded-lg bg-pastel-purple text-purple-500">C</span> SCP / SSH</p>
+            <p class="mt-1.5 text-xs">Transfer arsip ke server lain via SSH (SFTP). Mendukung autentikasi <span class="font-semibold">Password</span> atau <span class="font-semibold">Private Key</span> (tempel isi PEM atau path file, dengan passphrase opsional). Cocok untuk mengirim backup antar-server.</p>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
+          <span class="font-semibold">Tes Koneksi:</span> setelah membuat destinasi, klik tombol <span class="font-semibold">Tes Koneksi</span> pada kartunya untuk memastikan konfigurasi benar sebelum dipakai backup.
+        </div>
+      </div>
+    </section>
+
+    {# Schedule #}
+    <section id="schedule" class="scroll-mt-6 rounded-3xl border border-line bg-surface p-7 shadow-card">
+      <h2 class="text-lg font-bold text-heading">Penjadwalan</h2>
+      <div class="mt-4 space-y-3 text-sm leading-relaxed text-secondary">
+        <p>Di detail project, aktifkan <span class="font-semibold text-heading">Penjadwalan</span> dan pilih frekuensi:</p>
+        <ul class="ml-1 space-y-1.5">
+          <li class="flex gap-2"><span class="text-brand-teal">•</span> <span class="font-semibold">Harian</span> — tiap hari pada jam tertentu.</li>
+          <li class="flex gap-2"><span class="text-brand-teal">•</span> <span class="font-semibold">Mingguan</span> — pada hari &amp; jam tertentu.</li>
+          <li class="flex gap-2"><span class="text-brand-teal">•</span> <span class="font-semibold">Bulanan</span> — pada tanggal &amp; jam tertentu.</li>
+        </ul>
+        <p>Jam dijalankan mengikuti <span class="font-semibold text-heading">zona waktu global</span> yang Anda atur di Settings. Lihat ringkasan semua jadwal di menu <span class="font-semibold text-heading">Schedules</span>.</p>
+      </div>
+    </section>
+
+    {# Manual backup #}
+    <section id="manual-backup" class="scroll-mt-6 rounded-3xl border border-line bg-surface p-7 shadow-card">
+      <h2 class="text-lg font-bold text-heading">Backup Manual</h2>
+      <div class="mt-4 space-y-3 text-sm leading-relaxed text-secondary">
+        <p>Anda dapat menjalankan backup kapan saja tanpa menunggu jadwal:</p>
+        <ul class="ml-1 space-y-1.5">
+          <li class="flex gap-2"><span class="text-brand-teal">•</span> Tombol <span class="font-semibold">Run Backup</span> di pojok kanan atas detail project.</li>
+          <li class="flex gap-2"><span class="text-brand-teal">•</span> Tombol <span class="font-semibold">Backup Sekarang</span> di kartu Penjadwalan.</li>
+        </ul>
+        <p>Backup manual berjalan langsung dan <span class="font-semibold text-heading">tidak memengaruhi</span> jadwal otomatis — keduanya berjalan independen. Hasil setiap eksekusi tercatat di History.</p>
+      </div>
+    </section>
+
+    {# Restore #}
+    <section id="restore" class="scroll-mt-6 rounded-3xl border border-line bg-surface p-7 shadow-card">
+      <h2 class="text-lg font-bold text-heading">Restore</h2>
+      <div class="mt-4 space-y-3 text-sm leading-relaxed text-secondary">
+        <p>Restore bersifat <span class="font-semibold text-heading">pasif &amp; aman</span>: aplikasi hanya mengunduh arsip dari destinasi lalu mengekstraknya ke direktori tujuan. Tidak ada aksi otomatis (tanpa import database).</p>
+        <ol class="ml-1 space-y-1.5">
+          <li class="flex gap-2"><span class="text-brand-teal">1.</span> Buka menu <span class="font-semibold">Restore</span>, pilih destinasi sumber.</li>
+          <li class="flex gap-2"><span class="text-brand-teal">2.</span> Pilih arsip backup yang tersedia.</li>
+          <li class="flex gap-2"><span class="text-brand-teal">3.</span> Tentukan direktori tujuan ekstraksi, lalu klik <span class="font-semibold">Jalankan Restore</span>.</li>
+        </ol>
+        <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
+          Ekstraksi dilindungi dari serangan path-traversal (zip-slip/tar-slip) — entri arsip yang mencoba keluar dari direktori tujuan akan ditolak.
+        </div>
+      </div>
+    </section>
+
+    {# Settings #}
+    <section id="settings" class="scroll-mt-6 rounded-3xl border border-line bg-surface p-7 shadow-card">
+      <h2 class="text-lg font-bold text-heading">Settings &amp; Notifikasi</h2>
+      <div class="mt-4 space-y-3 text-sm leading-relaxed text-secondary">
+        <p><span class="font-semibold text-heading">Zona Waktu</span> — menentukan interpretasi jam jadwal dan tampilan waktu di seluruh aplikasi. Data tetap disimpan dalam UTC.</p>
+        <p><span class="font-semibold text-heading">Notifikasi</span> — pilih satu channel:</p>
+        <ul class="ml-1 space-y-1.5">
+          <li class="flex gap-2"><span class="text-brand-teal">•</span> <span class="font-semibold">Email</span> — konfigurasi SMTP (host, port, user, password, pengirim) dan hingga <span class="font-semibold">3 email penerima</span>.</li>
+          <li class="flex gap-2"><span class="text-brand-teal">•</span> <span class="font-semibold">Telegram</span> — satu bot (token dari <span class="font-mono">@BotFather</span>) dan Chat ID tujuan.</li>
+        </ul>
+        <p>Gunakan tombol <span class="font-semibold">Kirim Tes</span> untuk memverifikasi konfigurasi. Notifikasi dikirim untuk setiap hasil backup &amp; restore (atau hanya saat gagal, sesuai pilihan Anda).</p>
+      </div>
+    </section>
+
+    {# Security #}
+    <section id="security" class="scroll-mt-6 rounded-3xl border border-line bg-surface p-7 shadow-card">
+      <h2 class="text-lg font-bold text-heading">Keamanan</h2>
+      <ul class="mt-4 space-y-2 text-sm leading-relaxed text-secondary">
+        <li class="flex gap-2"><span class="text-brand-teal">•</span> Master Password disimpan sebagai hash bcrypt, tidak pernah plaintext.</li>
+        <li class="flex gap-2"><span class="text-brand-teal">•</span> Kredensial destinasi (password FTP/SCP, secret key S3, token Drive, private key) dan kredensial notifikasi <span class="font-semibold text-heading">dienkripsi</span> di database menggunakan kunci <span class="font-mono">ENCRYPTION_KEY</span>.</li>
+        <li class="flex gap-2"><span class="text-brand-teal">•</span> Set <span class="font-mono">DEBUG=false</span> di produksi agar cookie session hanya dikirim via HTTPS.</li>
+        <li class="flex gap-2"><span class="text-brand-teal">•</span> Restore dilindungi dari path-traversal.</li>
+      </ul>
+    </section>
+
+    {# FAQ #}
+    <section id="faq" class="scroll-mt-6 rounded-3xl border border-line bg-surface p-7 shadow-card">
+      <h2 class="text-lg font-bold text-heading">FAQ / Troubleshooting</h2>
+      <div class="mt-4 space-y-4 text-sm leading-relaxed">
+        {% set faqs = [
+          ("Backup database gagal: tool tidak ditemukan", "Pastikan mysqldump / pg_dump terpasang dan ada di PATH, atau atur MYSQLDUMP_PATH / PG_DUMP_PATH di .env. Sumber lain tetap di-backup meski satu sumber DB gagal."),
+          ("Tombol Connect Google Drive nonaktif", "Isi GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, dan ENCRYPTION_KEY di .env, lalu restart aplikasi."),
+          ("Google: redirect_uri_mismatch", "URI redirect di Google Cloud Console harus sama persis dengan GOOGLE_REDIRECT_URI (tanpa trailing slash)."),
+          ("Notifikasi tidak terkirim", "Gunakan tombol Kirim Tes di Settings untuk melihat pesan error. Pastikan kredensial benar dan ENCRYPTION_KEY sudah diatur. Untuk Gmail, gunakan App Password, bukan password akun."),
+          ("Waktu di History tampak meleset", "Periksa Zona Waktu di Settings. Semua waktu disimpan UTC dan dikonversi ke zona waktu tersebut saat ditampilkan."),
+          ("Restore dari FTP/SCP/Drive", "Pastikan destinasi sama dengan yang dipakai saat backup. Untuk Google Drive, scope drive.file hanya menampilkan arsip yang dibuat oleh aplikasi ini.")
+        ] %}
+        {% for q, a in faqs %}
+        <div class="rounded-2xl border border-line bg-canvas p-4">
+          <p class="text-sm font-semibold text-heading">{{ q }}</p>
+          <p class="mt-1.5 text-xs text-secondary">{{ a }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <p class="pb-2 text-center text-xs text-label">{{ app_name }} v{{ app_version }} — Dokumentasi</p>
+  </div>
+</div>
+{% endblock %}

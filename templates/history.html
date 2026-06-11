@@ -64,7 +64,7 @@
           {% for row in rows %}
           {% set log = row.log %}
           <tr class="transition-colors duration-quenza ease-quenza hover:bg-canvas">
-            <td class="whitespace-nowrap px-6 py-4 text-secondary">{{ log.created_at.strftime("%Y-%m-%d %H:%M") if log.created_at else "-" }}</td>
+            <td class="whitespace-nowrap px-6 py-4 text-secondary">{{ log.created_at | localtime }}</td>
             <td class="px-6 py-4">
               <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold
                 {% if log.action == 'restore' %}bg-pastel-purple text-purple-600{% else %}bg-pastel-blue text-blue-600{% endif %}">

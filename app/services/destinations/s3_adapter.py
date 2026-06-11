@@ -19,6 +19,13 @@ def _is_archive(name: str) -> bool:
     return n.endswith(".zip") or n.endswith(".tar.gz") or n.endswith(".tgz")
 
 
+def _safe_segment(name: str) -> str:
+    """Sanitize a string into a safe single path segment."""
+    keep = "-_."
+    cleaned = "".join(c if (c.isalnum() or c in keep) else "_" for c in (name or ""))
+    return cleaned.strip("_/ ") or "project"
+
+
 class S3Adapter(DestinationAdapter):
     """Upload archives to an S3 bucket.
 
@@ -37,11 +44,18 @@ class S3Adapter(DestinationAdapter):
         """Build a boto3 S3 client. Raises on missing SDK/config."""
         import boto3  # lazy import
 
+        from app.services import crypto
+
         kwargs = {}
         region = (self.config.get("region") or "").strip()
         endpoint = (self.config.get("endpoint_url") or "").strip()
         access = (self.config.get("access_key") or "").strip()
         secret = (self.config.get("secret_key") or "").strip()
+        if secret:
+            try:
+                secret = crypto.decrypt(secret)
+            except crypto.CryptoNotConfigured:
+                secret = ""
 
         if region:
             kwargs["region_name"] = region
@@ -53,11 +67,21 @@ class S3Adapter(DestinationAdapter):
 
         return boto3.client("s3", **kwargs)
 
-    def _key(self, remote_name: str) -> str:
-        prefix = (self.config.get("prefix") or "").strip().strip("/")
-        return f"{prefix}/{remote_name}" if prefix else remote_name
+    def _key(self, remote_name: str, subfolder: str = "") -> str:
+        """Build the object key.
 
-    def upload(self, local_path: str, remote_name: str) -> UploadResult:
+        Layout:
+          * prefix set      -> "<prefix>/<subfolder>/<name>"
+          * prefix empty    -> "quenza-backups/<subfolder>/<name>"
+        The per-project <subfolder> keeps archives organized automatically.
+        """
+        prefix = (self.config.get("prefix") or "").strip().strip("/")
+        base = prefix if prefix else "quenza-backups"
+        sub = _safe_segment(subfolder) if subfolder else ""
+        parts = [p for p in (base, sub, remote_name) if p]
+        return "/".join(parts)
+
+    def upload(self, local_path: str, remote_name: str, subfolder: str = "") -> UploadResult:
         bucket = (self.config.get("bucket") or "").strip()
         if not bucket:
             return UploadResult(ok=False, error="Nama bucket S3 belum diatur.")
@@ -71,7 +95,7 @@ class S3Adapter(DestinationAdapter):
         except Exception as exc:  # pragma: no cover - config errors
             return UploadResult(ok=False, error=f"Gagal inisialisasi S3: {exc}")
 
-        key = self._key(remote_name)
+        key = self._key(remote_name, subfolder)
         try:
             client.upload_file(local_path, bucket, key)
         except Exception as exc:

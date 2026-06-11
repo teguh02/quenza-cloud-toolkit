@@ -79,17 +79,27 @@ async def schedules_page(
     )
 
 
+@router.get("/help", response_class=HTMLResponse, name="help", response_model=None)
+async def help_page(request: Request) -> HTMLResponse | RedirectResponse:
+    """Render the in-app documentation."""
+    guard = require_login(request)
+    if guard is not None:
+        return guard
+    return templates.TemplateResponse(
+        request,
+        "help.html",
+        {
+            "active_page": "help",
+            "page_title": "Help / Documentation",
+            "page_subtitle": "Panduan penggunaan Quenza Cloud Toolkit.",
+        },
+    )
+
+
 # --- Sidebar placeholder pages ---------------------------------------------
 
 # (key, path, title, subtitle, icon, tone, fg)
-_PLACEHOLDER_PAGES = [
-    ("settings", "/settings", "Settings",
-     "Konfigurasi aplikasi & preferensi.", "cog", "pastel-blue", "text-blue-500",
-     "Pengaturan lanjutan dibangun pada fase berikutnya."),
-    ("help", "/help", "Help / Documentation",
-     "Panduan penggunaan Quenza Cloud Toolkit.", "help", "pastel-orange", "text-amber-500",
-     "Dokumentasi lengkap akan ditambahkan pada fase berikutnya."),
-]
+_PLACEHOLDER_PAGES = []
 
 
 def _make_placeholder(key, path, title, subtitle, icon, tone, fg, note):

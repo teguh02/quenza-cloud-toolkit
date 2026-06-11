@@ -159,7 +159,7 @@ def run_backup(project_id: int, *, trigger: str = "manual") -> dict:
                     {"destination": dest.name, "ok": False, "error": "Adapter tidak dikenal."}
                 )
                 continue
-            up = adapter.upload(archive_path, archive_name)
+            up = adapter.upload(archive_path, archive_name, subfolder=_safe_name(project_name))
             upload_results.append(
                 {
                     "destination": dest.name,
@@ -247,7 +247,7 @@ def _finalize(
         db.rollback()
         log_id = None
 
-    return {
+    result = {
         "ok": status in ("success", "partial"),
         "status": status,
         "message": message,
@@ -257,3 +257,15 @@ def _finalize(
         "duration_ms": duration_ms,
         "detail": detail,
     }
+
+    # Best-effort notification (never affects backup outcome).
+    try:
+        from app.services import notification_service
+
+        notification_service.notify_backup_result(
+            result, project_name=project.name if project else ""
+        )
+    except Exception:  # pragma: no cover
+        logger.exception("Backup notification dispatch failed")
+
+    return result

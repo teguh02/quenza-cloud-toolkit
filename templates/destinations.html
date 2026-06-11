@@ -29,6 +29,7 @@
             {% if d.dest_type.value == 'local' %}bg-pastel-blue text-blue-500
             {% elif d.dest_type.value == 's3' %}bg-pastel-orange text-amber-500
             {% elif d.dest_type.value == 'gdrive' %}bg-pastel-green text-brand-teal
+            {% elif d.dest_type.value == 'ftp' %}bg-pastel-blue text-blue-500
             {% else %}bg-pastel-purple text-purple-500{% endif %}">
             {% include "partials/icons/cloud.html" %}
           </div>
@@ -78,7 +79,7 @@
         {% include "partials/icons/cloud.html" %}
       </div>
       <h3 class="mt-5 text-lg font-bold text-heading">Belum ada destinasi</h3>
-      <p class="mt-1.5 text-sm text-secondary">Tambahkan tujuan penyimpanan: Local, Amazon S3, Google Drive, atau Mega.nz.</p>
+      <p class="mt-1.5 text-sm text-secondary">Tambahkan tujuan penyimpanan: Local, Amazon S3, Google Drive, FTP, atau SCP/SSH.</p>
       <button type="button" onclick="QuenzaModal.open('modal-create-dest')"
         class="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03]">
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -105,12 +106,12 @@
         {# Type selector #}
         <div>
           <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Tipe Destinasi</label>
-          <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          <div class="grid grid-cols-3 gap-2.5 sm:grid-cols-5">
             {% for spec in specs %}
             <label class="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-line bg-canvas px-3 py-3 text-center transition-all duration-quenza ease-quenza has-[:checked]:border-brand-teal has-[:checked]:bg-surface has-[:checked]:ring-2 has-[:checked]:ring-brand-teal/25">
               <input type="radio" name="dest_type" value="{{ spec.key }}" class="sr-only quenza-dest-type" {% if loop.first %}checked{% endif %} onchange="QuenzaDest.showFields('{{ spec.key }}')" />
               <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-{{ spec.tone }} {{ spec.fg }}">{% include "partials/icons/cloud.html" %}</span>
-              <span class="text-xs font-semibold text-heading">{{ spec.label }}</span>
+              <span class="text-[11px] font-semibold text-heading">{{ spec.label }}</span>
             </label>
             {% endfor %}
           </div>
@@ -133,19 +134,54 @@
             {% if field.type == 'textarea' %}
             <textarea name="{{ field.name }}" rows="3" placeholder="{{ field.placeholder|default('') }}" data-field-type="{{ spec.key }}"
               class="quenza-dest-input w-full resize-none rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25"></textarea>
+            {% elif field.type == 'select' %}
+            <select name="{{ field.name }}" data-field-type="{{ spec.key }}"
+              class="quenza-dest-input w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25">
+              {% for opt_val, opt_label in field.options %}
+              <option value="{{ opt_val }}">{{ opt_label }}</option>
+              {% endfor %}
+            </select>
             {% else %}
             <input type="{{ 'password' if field.secret else 'text' }}" name="{{ field.name }}" placeholder="{{ field.placeholder|default('') }}" data-field-type="{{ spec.key }}"
               class="quenza-dest-input w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
             {% endif %}
+            {% if field.help %}<p class="mt-1 text-[11px] text-label">{{ field.help }}</p>{% endif %}
           </div>
           {% endfor %}
         </div>
         {% endfor %}
+
+        {# Google Drive OAuth info (shown only when type = gdrive) #}
+        <div id="gdrive-oauth-note" class="space-y-4" style="display:none">
+          {% if gdrive_ready %}
+          <div class="flex items-start gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+            <span class="mt-0.5 shrink-0 text-emerald-600">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </span>
+            <p class="text-xs text-emerald-700">Anda akan diarahkan ke Google untuk login & memberi izin. Backup akan disimpan ke Drive akun yang Anda pilih. Aplikasi hanya dapat mengakses file yang dibuatnya sendiri.</p>
+          </div>
+          {% else %}
+          <div class="flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+            <span class="mt-0.5 shrink-0 text-amber-600">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </span>
+            <p class="text-xs text-amber-700">Google Drive belum dikonfigurasi di server. Atur <span class="font-semibold">GOOGLE_CLIENT_ID</span>, <span class="font-semibold">GOOGLE_CLIENT_SECRET</span>, dan <span class="font-semibold">ENCRYPTION_KEY</span> di <span class="font-mono">.env</span>.</p>
+          </div>
+          {% endif %}
+        </div>
       </div>
 
       <div class="flex items-center justify-end gap-3 border-t border-line bg-canvas px-7 py-4">
         <button type="button" onclick="QuenzaModal.close('modal-create-dest')" class="rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-all duration-quenza ease-quenza hover:text-heading">Batal</button>
-        <button type="submit" class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">Simpan Destinasi</button>
+        {# Generic submit (Local / S3) #}
+        <button type="submit" id="dest-submit-generic" class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">Simpan Destinasi</button>
+        {# Google Drive connect button (replaces submit for gdrive) #}
+        <button type="button" id="dest-submit-gdrive" style="display:none" {% if not gdrive_ready %}disabled{% endif %}
+          onclick="QuenzaDest.connectGoogle()"
+          class="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Connect Google Drive
+        </button>
       </div>
     </form>
   </div>
@@ -186,10 +222,18 @@
             {% if field.type == 'textarea' %}
             <textarea name="{{ field.name }}" rows="3" placeholder="{{ field.placeholder|default('') }}" data-edit-field="{{ spec.key }}" disabled
               class="w-full resize-none rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25"></textarea>
+            {% elif field.type == 'select' %}
+            <select name="{{ field.name }}" data-edit-field="{{ spec.key }}" disabled
+              class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25">
+              {% for opt_val, opt_label in field.options %}
+              <option value="{{ opt_val }}">{{ opt_label }}</option>
+              {% endfor %}
+            </select>
             {% else %}
             <input type="{{ 'password' if field.secret else 'text' }}" name="{{ field.name }}" placeholder="{{ field.placeholder|default('') }}" data-edit-field="{{ spec.key }}" disabled
               class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
             {% endif %}
+            {% if field.help %}<p class="mt-1 text-[11px] text-label">{{ field.help }}</p>{% endif %}
           </div>
           {% endfor %}
         </div>

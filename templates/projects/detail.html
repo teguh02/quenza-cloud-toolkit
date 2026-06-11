@@ -104,6 +104,7 @@
                 {% if d.dest_type.value == 'local' %}bg-pastel-blue text-blue-500
                 {% elif d.dest_type.value == 's3' %}bg-pastel-orange text-amber-500
                 {% elif d.dest_type.value == 'gdrive' %}bg-pastel-green text-brand-teal
+                {% elif d.dest_type.value == 'ftp' %}bg-pastel-blue text-blue-500
                 {% else %}bg-pastel-purple text-purple-500{% endif %}">
                 {% include "partials/icons/cloud.html" %}
               </span>
@@ -232,8 +233,21 @@
           <button type="submit" class="w-full rounded-xl bg-brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
             Simpan Jadwal
           </button>
-          <p class="text-center text-[11px] text-label">Zona waktu server (UTC). Waktu berjalan saat scheduler aktif.</p>
+          <p class="text-center text-[11px] text-label">Mengikuti zona waktu di Settings. Berjalan otomatis saat scheduler aktif.</p>
         </form>
+
+        {# Manual backup shortcut (works regardless of schedule) #}
+        <div class="mt-5 border-t border-line pt-5">
+          <p class="mb-2 text-xs text-secondary">Jalankan backup sekarang secara manual, terlepas dari jadwal otomatis.</p>
+          <form method="post" action="/projects/{{ project.id }}/run"
+            onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').innerHTML='<span class=&quot;animate-pulse&quot;>Menjalankan backup...</span>';">
+            <button type="submit"
+              class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-brand-teal/30 bg-pastel-green px-4 py-2.5 text-sm font-semibold text-brand-teal transition-all duration-quenza ease-quenza hover:bg-surface hover:shadow-card active:scale-[0.99] disabled:opacity-70">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Backup Sekarang
+            </button>
+          </form>
+        </div>
       </section>
 
       {# Danger zone #}

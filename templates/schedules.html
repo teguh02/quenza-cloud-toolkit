@@ -37,8 +37,8 @@
               {{ "Aktif" if s.is_enabled else "Nonaktif" }}
             </span>
           </td>
-          <td class="px-6 py-4 text-secondary">{{ s.last_run_at.strftime("%Y-%m-%d %H:%M") if s.last_run_at else "-" }}</td>
-          <td class="px-6 py-4 text-secondary">{{ s.next_run_at.strftime("%Y-%m-%d %H:%M") if s.next_run_at else "-" }}</td>
+          <td class="px-6 py-4 text-secondary">{{ s.last_run_at | localtime }}</td>
+          <td class="px-6 py-4 text-secondary">{{ s.next_run_at | localtime }}</td>
           <td class="px-6 py-4 text-right">
             {% if row.project %}
             <a href="/projects/{{ row.project.id }}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-teal transition-colors duration-quenza ease-quenza hover:text-brand-green">

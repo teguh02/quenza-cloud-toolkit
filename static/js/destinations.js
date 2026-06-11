@@ -18,11 +18,22 @@
   }
 
   // --- Create modal ----------------------------------------------------------
+  function toggleGdriveUI(typeKey) {
+    var isDrive = typeKey === "gdrive";
+    var note = document.getElementById("gdrive-oauth-note");
+    var generic = document.getElementById("dest-submit-generic");
+    var gdriveBtn = document.getElementById("dest-submit-gdrive");
+    if (note) note.style.display = isDrive ? "" : "none";
+    if (generic) generic.style.display = isDrive ? "none" : "";
+    if (gdriveBtn) gdriveBtn.style.display = isDrive ? "" : "none";
+  }
+
   function showFields(typeKey) {
     var groups = document.querySelectorAll(".quenza-dest-fields");
     Array.prototype.forEach.call(groups, function (g) {
       setEnabled(g, g.getAttribute("data-type") === typeKey);
     });
+    toggleGdriveUI(typeKey);
   }
 
   function initCreate() {
@@ -34,6 +45,31 @@
       var isActive = g.getAttribute("data-type") === activeKey;
       setEnabled(g, isActive);
     });
+    toggleGdriveUI(activeKey);
+  }
+
+  // Redirect to the Google Drive OAuth connect endpoint, carrying the
+  // chosen name + optional folder id as query params.
+  function connectGoogle() {
+    var form = document.querySelector('#modal-create-dest form');
+    var name = "";
+    var folder = "";
+    if (form) {
+      var nameEl = form.querySelector('input[name="name"]');
+      if (nameEl) name = nameEl.value.trim();
+      // folder_id input lives in the gdrive field group.
+      var group = form.querySelector('.quenza-dest-fields[data-type="gdrive"]');
+      if (group) {
+        var folderEl = group.querySelector('input[name="folder_id"]');
+        if (folderEl) folder = folderEl.value.trim();
+      }
+    }
+    var url =
+      "/destinations/gdrive/connect?name=" +
+      encodeURIComponent(name) +
+      "&folder_id=" +
+      encodeURIComponent(folder);
+    window.location.href = url;
   }
 
   // --- Edit modal ------------------------------------------------------------
@@ -63,5 +99,6 @@
   window.QuenzaDest = {
     showFields: showFields,
     openEdit: openEdit,
+    connectGoogle: connectGoogle,
   };
 })();
