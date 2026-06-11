@@ -89,9 +89,31 @@ quenza-cloud-toolkit/
 
 ---
 
-## Setup & Menjalankan (dari awal)
+## Instalasi Otomatis (Direkomendasikan)
 
-Langkah berikut tersedia untuk **Windows (PowerShell)** dan **Linux/macOS (bash)**.
+Cara tercepat: jalankan script instalasi yang menangani semuanya
+(download → venv → dependencies → `.env` + Master Password → daftarkan
+layanan auto-startup → jalankan). Anda cukup menunggu.
+
+**Linux / macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/teguh02/quenza-cloud-toolkit/main/install.sh | bash
+```
+
+**Windows (PowerShell sebagai Administrator):**
+```powershell
+irm https://raw.githubusercontent.com/teguh02/quenza-cloud-toolkit/main/install.ps1 | iex
+```
+
+Detail lengkap, opsi, reverse proxy, dan pengelolaan layanan ada di
+[`docs/INSTALL.md`](docs/INSTALL.md).
+
+---
+
+## Setup & Menjalankan (manual, dari awal)
+
+Bila ingin memasang secara manual, langkah berikut tersedia untuk
+**Windows (PowerShell)** dan **Linux/macOS (bash)**.
 
 ### 1. Clone repository
 

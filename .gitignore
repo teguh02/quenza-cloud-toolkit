@@ -27,6 +27,12 @@ dist/
 backups/
 tmp/
 
+# --- Installer runtime artifacts ---
+install.log
+server.log
+run.sh
+nssm/
+
 # --- IDE / OS ---
 .vscode/
 .idea/
