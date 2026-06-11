@@ -35,6 +35,7 @@ OS=""; ARCH=""; PKG_MGR=""; PY_BIN=""; HAS_GIT=0; HAS_SYSTEMD=0
 INSTALL_DIR=""; PORT="$DEFAULT_PORT"; PUBLIC_URL=""; HOST_IP="127.0.0.1"
 MASTER_PASSWORD=""; SUDO=""; LOG_FILE=""; CURRENT_STEP="inisialisasi"
 SERVICE_KIND=""   # systemd | cron | none
+STEP_NO=0; STEP_TOTAL=6   # progress counter for run_step
 
 # ==============================================================================
 # Logging helpers
@@ -135,24 +136,39 @@ fail() {
   exit 1
 }
 
-# Run a step: set label, then execute. On non-zero exit, capture output & fail.
+# Run a step with a [n/total] header. Output streams live to the screen and is
+# tee'd into the log. Exit code is taken from the command (PIPESTATUS[0]).
 run_step() {
   local label="$1"; shift
+  STEP_NO=$((STEP_NO + 1))
   CURRENT_STEP="$label"
-  log_step "$label"
-  local tmp; tmp="$(mktemp 2>/dev/null || echo /tmp/quenza_step.$$)"
-  if "$@" >"$tmp" 2>&1; then
-    [ -s "$tmp" ] && { cat "$tmp"; [ -n "$LOG_FILE" ] && cat "$tmp" >>"$LOG_FILE"; }
-    rm -f "$tmp"
+  log "\n${C_BOLD}${C_CYN}==> [${STEP_NO}/${STEP_TOTAL}] ${label}${C_RESET}"
+
+  local rc=0
+  if [ -n "$LOG_FILE" ]; then
+    # Stream stdout+stderr live AND append to log (indented, dimmed).
+    "$@" 2>&1 | _indent_stream | tee -a "$LOG_FILE"
+    rc=${PIPESTATUS[0]}
+  else
+    "$@" 2>&1 | _indent_stream
+    rc=${PIPESTATUS[0]}
+  fi
+
+  if [ "$rc" -eq 0 ]; then
+    log "${C_GRN}✓ [${STEP_NO}/${STEP_TOTAL}] ${label} — selesai${C_RESET}"
     return 0
   else
-    local rc=$?
-    local out; out="$(cat "$tmp" 2>/dev/null)"
-    [ -n "$out" ] && log "${C_DIM}${out}${C_RESET}"
-    [ -n "$LOG_FILE" ] && cat "$tmp" >>"$LOG_FILE" 2>/dev/null
-    rm -f "$tmp"
-    fail "$out (exit $rc)"
+    log "${C_RED}✗ [${STEP_NO}/${STEP_TOTAL}] ${label} — gagal (exit ${rc})${C_RESET}"
+    fail "Tahap '${label}' gagal dengan exit code ${rc}. Lihat output di atas / ${LOG_FILE}"
   fi
+}
+
+# Indent + dim streamed output so it reads as sub-output of the step.
+_indent_stream() {
+  local line
+  while IFS= read -r line; do
+    printf "   %b%s%b\n" "$C_DIM" "$line" "$C_RESET"
+  done
 }
 
 # ==============================================================================
@@ -280,15 +296,27 @@ check_db_tools() {
     local ans=""; read -r ans </dev/tty 2>/dev/null || ans=""
     case "$ans" in
       [yY]|[yY][eE][sS])
+        log_info "Memasang client database (output di bawah)..."
+        local pm_rc=0
+        # Stream output live so the user sees progress.
         case "$PKG_MGR" in
-          apt-get) $SUDO apt-get install -y mariadb-client postgresql-client >>"${LOG_FILE:-/dev/null}" 2>&1 || true ;;
-          dnf)     $SUDO dnf install -y mariadb postgresql >>"${LOG_FILE:-/dev/null}" 2>&1 || true ;;
-          yum)     $SUDO yum install -y mariadb postgresql >>"${LOG_FILE:-/dev/null}" 2>&1 || true ;;
-          pacman)  $SUDO pacman -Sy --noconfirm mariadb-clients postgresql-libs >>"${LOG_FILE:-/dev/null}" 2>&1 || true ;;
-          zypper)  $SUDO zypper install -y mariadb-client postgresql >>"${LOG_FILE:-/dev/null}" 2>&1 || true ;;
+          apt-get) { $SUDO apt-get install -y mariadb-client postgresql-client 2>&1 | _indent_stream; pm_rc=${PIPESTATUS[0]}; } ;;
+          dnf)     { $SUDO dnf install -y mariadb postgresql 2>&1 | _indent_stream; pm_rc=${PIPESTATUS[0]}; } ;;
+          yum)     { $SUDO yum install -y mariadb postgresql 2>&1 | _indent_stream; pm_rc=${PIPESTATUS[0]}; } ;;
+          pacman)  { $SUDO pacman -Sy --noconfirm mariadb-clients postgresql-libs 2>&1 | _indent_stream; pm_rc=${PIPESTATUS[0]}; } ;;
+          zypper)  { $SUDO zypper install -y mariadb-client postgresql 2>&1 | _indent_stream; pm_rc=${PIPESTATUS[0]}; } ;;
         esac
-        command -v mysqldump >/dev/null 2>&1 && log_ok "mysqldump siap"
-        command -v pg_dump  >/dev/null 2>&1 && log_ok "pg_dump siap"
+
+        if [ "$pm_rc" -ne 0 ]; then
+          log_warn "Package manager mengembalikan error (exit ${pm_rc})."
+          if [ "$PKG_MGR" = "apt-get" ]; then
+            log_info "Coba perbaiki manual: ${SUDO} apt-get --fix-broken install"
+          fi
+        fi
+
+        # Honest re-verification per tool (do NOT claim success blindly).
+        if command -v mysqldump >/dev/null 2>&1; then log_ok "mysqldump kini tersedia"; else log_warn "mysqldump masih belum tersedia (lewati — opsional)"; fi
+        if command -v pg_dump  >/dev/null 2>&1; then log_ok "pg_dump kini tersedia";  else log_warn "pg_dump masih belum tersedia (lewati — opsional)"; fi
         ;;
       *) log_info "Dilewati. Anda bisa memasangnya nanti." ;;
     esac
@@ -339,38 +367,50 @@ port_in_use() {
 # Stage: download
 # ==============================================================================
 download_project() {
+  # Already a git checkout? -> update.
   if [ -d "$INSTALL_DIR/.git" ] && [ "$HAS_GIT" = "1" ]; then
     log_info "Repo sudah ada — memperbarui (git pull)..."
-    git -C "$INSTALL_DIR" pull --ff-only
+    git -C "$INSTALL_DIR" pull --ff-only --progress
     return $?
   fi
+  # Already contains the project (non-git copy)? -> skip download.
   if [ -f "$INSTALL_DIR/app/main.py" ]; then
     log_info "Direktori instalasi sudah berisi project — melewati download."
     return 0
   fi
 
-  mkdir -p "$INSTALL_DIR" || return 1
+  # Fresh download into a TEMP dir, then copy contents into INSTALL_DIR.
+  # This is safe even if INSTALL_DIR already exists / is not empty
+  # (e.g. it may already contain install.log).
+  local tmp; tmp="$(mktemp -d)" || { log_err "Gagal membuat direktori sementara."; return 1; }
+  local src=""
 
   if [ "$HAS_GIT" = "1" ]; then
-    log_info "Meng-clone repository..."
-    git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
+    log_info "Meng-clone repository (ke direktori sementara)..."
+    git clone --depth 1 --progress "$REPO_URL" "$tmp/repo" || { rm -rf "$tmp"; return 1; }
+    src="$tmp/repo"
   else
     log_info "git tidak ada — mengunduh arsip..."
-    local tmp; tmp="$(mktemp -d)"
     if command -v curl >/dev/null 2>&1; then
-      curl -fsSL "$REPO_ZIP" -o "$tmp/quenza.tar.gz" || return 1
+      curl -fL --progress-bar "$REPO_ZIP" -o "$tmp/quenza.tar.gz" || { rm -rf "$tmp"; return 1; }
     elif command -v wget >/dev/null 2>&1; then
-      wget -q "$REPO_ZIP" -O "$tmp/quenza.tar.gz" || return 1
+      wget --show-progress -q "$REPO_ZIP" -O "$tmp/quenza.tar.gz" || { rm -rf "$tmp"; return 1; }
     else
-      log_err "curl/wget tidak tersedia untuk mengunduh."; return 1
+      log_err "curl/wget tidak tersedia untuk mengunduh."; rm -rf "$tmp"; return 1
     fi
-    tar -xzf "$tmp/quenza.tar.gz" -C "$tmp" || return 1
-    # Arsip extract ke quenza-cloud-toolkit-main/
-    local extracted; extracted="$(find "$tmp" -maxdepth 1 -type d -name 'quenza-cloud-toolkit-*' | head -n1)"
-    [ -z "$extracted" ] && { log_err "Struktur arsip tidak dikenali."; return 1; }
-    cp -a "$extracted/." "$INSTALL_DIR/" || return 1
-    rm -rf "$tmp"
+    log_info "Mengekstrak arsip..."
+    tar -xzf "$tmp/quenza.tar.gz" -C "$tmp" || { rm -rf "$tmp"; return 1; }
+    src="$(find "$tmp" -maxdepth 1 -type d -name 'quenza-cloud-toolkit-*' | head -n1)"
+    [ -z "$src" ] && { log_err "Struktur arsip tidak dikenali."; rm -rf "$tmp"; return 1; }
   fi
+
+  # Ensure target exists, then copy ALL contents (including dotfiles) in.
+  mkdir -p "$INSTALL_DIR" || { rm -rf "$tmp"; return 1; }
+  log_info "Menyalin berkas project ke ${INSTALL_DIR}..."
+  # cp -a "$src/." preserves dotfiles and copies into existing dir safely.
+  cp -a "$src/." "$INSTALL_DIR/" || { rm -rf "$tmp"; return 1; }
+  rm -rf "$tmp"
+  return 0
 }
 
 # ==============================================================================
@@ -588,29 +628,33 @@ main() {
   detect_system
   detect_host_ip
 
-  # Set log file early (in temp until INSTALL_DIR known)
+  # Log to a temp file until the install dir is confirmed (after download).
   LOG_FILE="$(mktemp 2>/dev/null || echo /tmp/quenza_install.log)"
 
   prompt_inputs
-
-  # Move log into install dir once known
-  mkdir -p "$INSTALL_DIR" 2>/dev/null || true
-  if [ -d "$INSTALL_DIR" ]; then
-    local newlog="${INSTALL_DIR}/install.log"
-    cat "$LOG_FILE" >>"$newlog" 2>/dev/null && LOG_FILE="$newlog" || true
-  fi
 
   ensure_python
   check_db_tools
 
   run_step "Mengunduh project" download_project
+
+  # Project dir is now valid — relocate the log inside it.
+  if [ -d "$INSTALL_DIR" ]; then
+    local newlog="${INSTALL_DIR}/install.log"
+    if cat "$LOG_FILE" >>"$newlog" 2>/dev/null; then
+      rm -f "$LOG_FILE" 2>/dev/null || true
+      LOG_FILE="$newlog"
+    fi
+  fi
+
   run_step "Menyiapkan virtual environment & dependencies" setup_venv
   run_step "Mengonfigurasi .env (Master Password terenkripsi)" configure_env
   run_step "Memverifikasi aplikasi" verify_app
   run_step "Mendaftarkan service (auto-startup)" register_service
 
+  STEP_NO=$((STEP_NO + 1))
   CURRENT_STEP="memverifikasi layanan berjalan"
-  log_step "Memverifikasi layanan berjalan"
+  log "\n${C_BOLD}${C_CYN}==> [${STEP_NO}/${STEP_TOTAL}] Memverifikasi layanan berjalan${C_RESET}"
   if health_check; then
     log_ok "Layanan merespons di /healthz."
   else

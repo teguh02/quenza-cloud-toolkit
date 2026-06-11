@@ -42,6 +42,8 @@ $script:HostIp      = "127.0.0.1"
 $script:MasterPassword = ""
 $script:LogFile     = ""
 $script:ServiceKind = ""   # nssm | task
+$script:StepNo      = 0
+$script:StepTotal   = 6
 
 # --- Logging -----------------------------------------------------------------
 function Write-Log {
@@ -119,11 +121,14 @@ function Invoke-Fail {
 
 function Invoke-Step {
     param([string]$Label, [scriptblock]$Action)
+    $script:StepNo++
     $script:CurrentStep = $Label
-    Log-Step $Label
+    Write-Log "`n==> [$($script:StepNo)/$($script:StepTotal)] $Label" "White"
     try {
         & $Action
+        Write-Log "[OK] [$($script:StepNo)/$($script:StepTotal)] $Label - selesai" "Green"
     } catch {
+        Write-Log "[X] [$($script:StepNo)/$($script:StepTotal)] $Label - gagal" "Red"
         Invoke-Fail -Detail $_.Exception.Message
     }
 }
@@ -248,33 +253,48 @@ function Test-PortInUse {
 
 # --- Stage: download ---------------------------------------------------------
 function Get-Project {
+    # Already a git checkout? -> update.
     if ((Test-Path (Join-Path $global:InstallDir ".git")) -and $script:HasGit) {
         Log-Info "Repo sudah ada - memperbarui (git pull)..."
-        git -C $global:InstallDir pull --ff-only
+        git -C $global:InstallDir pull --ff-only --progress
         if ($LASTEXITCODE -ne 0) { throw "git pull gagal." }
         return
     }
+    # Already contains the project (non-git copy)? -> skip.
     if (Test-Path (Join-Path $global:InstallDir "app\main.py")) {
         Log-Info "Direktori instalasi sudah berisi project - melewati download."
         return
     }
 
-    New-Item -ItemType Directory -Path $global:InstallDir -Force | Out-Null
+    # Fresh download into a TEMP dir, then copy contents into InstallDir.
+    # Safe even if InstallDir already exists / is not empty (e.g. install.log).
+    $tmp = Join-Path $env:TEMP ("quenza_" + [guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+    $src = $null
+    try {
+        if ($script:HasGit) {
+            Log-Info "Meng-clone repository (ke direktori sementara)..."
+            git clone --depth 1 --progress $RepoUrl (Join-Path $tmp "repo")
+            if ($LASTEXITCODE -ne 0) { throw "git clone gagal." }
+            $src = Join-Path $tmp "repo"
+        } else {
+            Log-Info "git tidak ada - mengunduh arsip..."
+            $zip = Join-Path $tmp "quenza.zip"
+            Invoke-WebRequest -Uri $RepoZip -OutFile $zip -UseBasicParsing
+            Log-Info "Mengekstrak arsip..."
+            Expand-Archive -LiteralPath $zip -DestinationPath $tmp -Force
+            $extracted = Get-ChildItem -LiteralPath $tmp -Directory | Where-Object { $_.Name -like "quenza-cloud-toolkit-*" } | Select-Object -First 1
+            if (-not $extracted) { throw "Struktur arsip tidak dikenali." }
+            $src = $extracted.FullName
+        }
 
-    if ($script:HasGit) {
-        Log-Info "Meng-clone repository..."
-        git clone --depth 1 $RepoUrl $global:InstallDir
-        if ($LASTEXITCODE -ne 0) { throw "git clone gagal." }
-    } else {
-        Log-Info "git tidak ada - mengunduh arsip..."
-        $tmp = Join-Path $env:TEMP ("quenza_" + [guid]::NewGuid().ToString("N"))
-        New-Item -ItemType Directory -Path $tmp -Force | Out-Null
-        $zip = Join-Path $tmp "quenza.zip"
-        Invoke-WebRequest -Uri $RepoZip -OutFile $zip -UseBasicParsing
-        Expand-Archive -LiteralPath $zip -DestinationPath $tmp -Force
-        $extracted = Get-ChildItem -LiteralPath $tmp -Directory | Where-Object { $_.Name -like "quenza-cloud-toolkit-*" } | Select-Object -First 1
-        if (-not $extracted) { throw "Struktur arsip tidak dikenali." }
-        Copy-Item -Path (Join-Path $extracted.FullName "*") -Destination $global:InstallDir -Recurse -Force
+        New-Item -ItemType Directory -Path $global:InstallDir -Force | Out-Null
+        Log-Info "Menyalin berkas project ke $($global:InstallDir)..."
+        # Copy all items (including dotfiles like .git, .env.example) into target.
+        Get-ChildItem -LiteralPath $src -Force | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination $global:InstallDir -Recurse -Force
+        }
+    } finally {
         Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
@@ -512,29 +532,34 @@ function Main {
     Show-Banner
     Initialize-Detection
 
+    # Log to a temp file until the install dir is confirmed (after download).
     $script:LogFile = Join-Path $env:TEMP "quenza_install.log"
 
     Read-Inputs
-
-    # Move log into install dir
-    try {
-        New-Item -ItemType Directory -Path $global:InstallDir -Force | Out-Null
-        $newLog = Join-Path $global:InstallDir "install.log"
-        if (Test-Path $script:LogFile) { Get-Content $script:LogFile | Add-Content $newLog -ErrorAction SilentlyContinue }
-        $script:LogFile = $newLog
-    } catch {}
 
     Initialize-Python
     Test-DbTools
 
     Invoke-Step "Mengunduh project" { Get-Project }
+
+    # Project dir is now valid - relocate the log inside it.
+    try {
+        $newLog = Join-Path $global:InstallDir "install.log"
+        if (Test-Path $script:LogFile) {
+            Get-Content $script:LogFile | Add-Content $newLog -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $script:LogFile -ErrorAction SilentlyContinue
+        }
+        $script:LogFile = $newLog
+    } catch {}
+
     Invoke-Step "Menyiapkan virtual environment & dependencies" { Initialize-Venv }
     Invoke-Step "Mengonfigurasi .env (Master Password terenkripsi)" { Initialize-EnvConfig }
     Invoke-Step "Memverifikasi aplikasi" { Test-AppImport }
     Invoke-Step "Mendaftarkan service (auto-startup)" { Register-QuenzaService }
 
+    $script:StepNo++
     $script:CurrentStep = "memverifikasi layanan berjalan"
-    Log-Step "Memverifikasi layanan berjalan"
+    Write-Log "`n==> [$($script:StepNo)/$($script:StepTotal)] Memverifikasi layanan berjalan" "White"
     if (Test-Health) {
         Log-Ok "Layanan merespons di /healthz."
     } else {

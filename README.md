@@ -9,6 +9,53 @@ sederhana, aman, dan terpusat. Mengikuti **Quenza Design System**.
 
 ---
 
+## Tampilan Aplikasi
+
+Antarmuka modern, bersih, dan responsif yang mengikuti **Quenza Design
+System** — gradasi hijau-teal, kartu rounded, dan animasi halus di setiap
+interaksi. Dirancang agar manajemen backup terasa ringan dan menyenangkan.
+
+### Dashboard yang Informatif
+Pantau seluruh aktivitas backup dalam satu layar: kartu statistik real-time,
+grafik tren backup berhasil vs gagal, Quick Actions, dan Recent Activity.
+
+![Dashboard Quenza Cloud Toolkit](https://trello.com/1/cards/6a2a4b63ff61eb2b9763dfbb/attachments/6a2a4b777e4866f911adb5f7/previews/6a2a4b787e4866f911adb608/download/image.webp)
+
+### Manajemen Project yang Fleksibel
+Kelola banyak project backup, tiap project bebas menentukan sumber, format
+arsip, destinasi, dan jadwalnya sendiri.
+
+![Manajemen Project](https://trello.com/1/cards/6a2a4b63ff61eb2b9763dfbb/attachments/6a2a4c28e1d1a7f0361dc903/previews/6a2a4c28e1d1a7f0361dc962/download/image.webp)
+
+### Integrated File Manager
+Jelajahi direktori server langsung dari aplikasi — pilih folder/file dengan
+checkbox, navigasi breadcrumb, dan backup direktori secara rekursif.
+
+![Integrated File Manager](https://trello.com/1/cards/6a2a4b63ff61eb2b9763dfbb/attachments/6a2a4c02f624fc9145be8802/previews/6a2a4c03f624fc9145be8851/download/image.webp)
+
+### Multi-Destinasi Penyimpanan
+Kirim hasil backup ke Local, Amazon S3, Google Drive (OAuth), FTP, atau
+SCP/SSH — selektif per project, dengan kredensial terenkripsi.
+
+![Destinations](https://trello.com/1/cards/6a2a4b63ff61eb2b9763dfbb/attachments/6a2a4bf4caf0fd04fad3ea03/previews/6a2a4bf5caf0fd04fad3ea42/download/image.webp)
+
+### Penjadwalan Backup Otomatis
+Atur jadwal harian, mingguan, atau bulanan per project — berjalan otomatis
+mengikuti zona waktu yang Anda tentukan.
+
+![Penjadwalan](https://trello.com/1/cards/6a2a4b63ff61eb2b9763dfbb/attachments/6a2a4be93d4b98732bb898fd/previews/6a2a4be93d4b98732bb8992c/download/image.webp)
+
+### Restore Aman & Riwayat Lengkap
+Pulihkan data dengan aman (download + extract, tanpa aksi otomatis) dan
+telusuri seluruh riwayat eksekusi lewat History/Logs.
+
+![Restore & History](https://trello.com/1/cards/6a2a4b63ff61eb2b9763dfbb/attachments/6a2a4bdc9586954cd6549bd8/previews/6a2a4bdd9586954cd6549bf7/download/image.webp)
+
+> Catatan: bila gambar di atas tidak tampil, kemungkinan tautan sumber
+> memerlukan autentikasi. Lihat aplikasi secara langsung setelah instalasi.
+
+---
+
 ## Fitur Utama
 
 - **Autentikasi** Master Password tunggal (hash bcrypt, session cookie).
