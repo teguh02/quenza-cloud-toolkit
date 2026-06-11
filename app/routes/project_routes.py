@@ -10,17 +10,18 @@ from __future__ import annotations
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.auth import require_login
+from app.auth import require_api_auth, require_login
 from app.database import get_db
 from app.models import SourceType
 from app.services import (
-    backup_service,
     destination_service,
+    job_service,
     project_service,
     schedule_service,
+    source_size_service,
 )
 from app.templating import templates
 
@@ -115,6 +116,9 @@ async def project_detail(
     selected_ids = {d.id for d in project.destinations}
     schedule = project.schedule
 
+    # Total size of backup sources (cached; recomputed in background if stale).
+    size_entry = source_size_service.ensure_fresh(db, project_id)
+
     return templates.TemplateResponse(
         request,
         "projects/detail.html",
@@ -124,6 +128,7 @@ async def project_detail(
             "page_subtitle": "Detail & konfigurasi project.",
             "project": project,
             "sources": sources,
+            "size_entry": size_entry,
             "all_destinations": all_destinations,
             "selected_dest_ids": selected_ids,
             "schedule": schedule,
@@ -132,6 +137,44 @@ async def project_detail(
             "flash_type": request.query_params.get("type", "success"),
         },
     )
+
+
+# --- Backup-source total size (background-computed, cached) ------------------
+
+
+@router.get("/{project_id}/sources/size", response_model=None)
+async def project_sources_size(
+    project_id: int,
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_api_auth),
+) -> JSONResponse:
+    """Return the cached size entry for a project's backup sources (JSON).
+
+    Kicks off a background recompute if the cache is stale, so the client can
+    poll this endpoint until ``status == 'done'``.
+    """
+    if project_service.get_project(db, project_id) is None:
+        return JSONResponse({"error": "Project tidak ditemukan."}, status_code=404)
+    entry = source_size_service.ensure_fresh(db, project_id)
+    return JSONResponse(entry)
+
+
+@router.post("/{project_id}/sources/size/recompute", response_model=None)
+async def project_sources_size_recompute(
+    request: Request,
+    project_id: int,
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_api_auth),
+) -> JSONResponse:
+    """Force a background recompute of a project's backup-source size."""
+    if project_service.get_project(db, project_id) is None:
+        return JSONResponse({"error": "Project tidak ditemukan."}, status_code=404)
+    try:
+        source_size_service.enqueue_compute(project_id, force=True)
+    except Exception as exc:  # pragma: no cover - defensive
+        return JSONResponse({"error": f"Gagal menjadwalkan: {exc}"}, status_code=500)
+    entry = source_size_service.get_cached(db, project_id)
+    return JSONResponse(entry)
 
 
 @router.post("/{project_id}/update", name="project_update", response_model=None)
@@ -392,13 +435,31 @@ async def project_run_backup(
     project_id: int,
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
-    """Trigger a manual backup for the project (runs synchronously)."""
+    """Trigger a manual backup in the BACKGROUND and redirect to History.
+
+    The backup runs off the request/event loop so the UI stays responsive and
+    reverse proxies don't time out. Progress is monitored in real time on the
+    History page.
+    """
     guard = require_login(request)
     if guard is not None:
         return guard
 
-    result = backup_service.run_backup(project_id, trigger="manual")
-    flash_type = "success" if result.get("status") == "success" else (
-        "info" if result.get("status") == "partial" else "error"
+    project = project_service.get_project(db, project_id)
+    if project is None:
+        return _redirect("/projects", msg="Project tidak ditemukan.", type="error")
+
+    try:
+        job_service.enqueue_backup(project_id, trigger="manual")
+    except job_service.JobBusyError as exc:
+        return _redirect(f"/projects/{project_id}", msg=str(exc), type="error")
+    except Exception as exc:  # pragma: no cover - defensive
+        return _redirect(
+            f"/projects/{project_id}", msg=f"Gagal memulai backup: {exc}", type="error"
+        )
+
+    return _redirect(
+        "/history",
+        msg="Backup dimulai di latar belakang. Pantau prosesnya di sini.",
+        type="info",
     )
-    return _redirect(f"/projects/{project_id}", msg=result.get("message", "Backup selesai."), type=flash_type)

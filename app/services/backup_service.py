@@ -13,6 +13,7 @@ import logging
 import shutil
 import tempfile
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -47,12 +48,20 @@ def _safe_name(name: str) -> str:
     return cleaned.strip("_") or "project"
 
 
-def run_backup(project_id: int, *, trigger: str = "manual") -> dict:
+def run_backup(
+    project_id: int,
+    *,
+    trigger: str = "manual",
+    progress_cb: Callable[[int, str, int, int], None] | None = None,
+) -> dict:
     """Run a backup for the given project id.
 
     Args:
         project_id: target project.
         trigger: "manual" or "schedule".
+        progress_cb: optional callback(step_index, label, pct, total_steps)
+            invoked at each stage for realtime progress. Backwards-compatible:
+            when None, behaviour is unchanged.
 
     Returns:
         A summary dict (also persisted as a BackupLog).
@@ -61,7 +70,19 @@ def run_backup(project_id: int, *, trigger: str = "manual") -> dict:
     db: Session = SessionLocal()
     staging: str | None = None
 
+    # Progress emitter (safe: never let a callback error break the backup).
+    _TOTAL_STEPS = 5
+
+    def emit(step_index: int, label: str, pct: int) -> None:
+        if progress_cb is None:
+            return
+        try:
+            progress_cb(step_index, label, pct, _TOTAL_STEPS)
+        except Exception:  # pragma: no cover - progress must not break backup
+            logger.debug("progress_cb raised; ignored", exc_info=True)
+
     try:
+        emit(1, "Menyiapkan backup...", 3)
         project = db.get(Project, project_id)
         if project is None:
             return _finalize(
@@ -94,16 +115,22 @@ def run_backup(project_id: int, *, trigger: str = "manual") -> dict:
         dump_dir.mkdir(parents=True, exist_ok=True)
 
         # 2) Collect archive items (filesystem sources + DB dumps)
+        emit(2, "Menyiapkan sumber backup...", 8)
         items: list[archive_service.ArchiveItem] = []
         source_warnings: list[str] = []
 
-        for src in sources:
+        total_src = len(sources) or 1
+        for idx, src in enumerate(sources):
+            # Spread sources across the 8%..40% progress band.
+            src_pct = 8 + int(32 * (idx / total_src))
             if src.source_type in (SourceType.DIRECTORY, SourceType.FILE):
                 if src.path:
+                    emit(2, f"Menyiapkan: {src.path}", src_pct)
                     items.append(archive_service.ArchiveItem(path=src.path))
                 else:
                     source_warnings.append("Sumber path kosong dilewati.")
             elif src.source_type == SourceType.MYSQL:
+                emit(2, f"Membuat dump MySQL: {src.db_name}", src_pct)
                 res = db_dump_service.dump_mysql(
                     host=src.db_host, port=src.db_port, name=src.db_name,
                     user=src.db_user, password=src.db_password, out_dir=str(dump_dir),
@@ -113,6 +140,7 @@ def run_backup(project_id: int, *, trigger: str = "manual") -> dict:
                 else:
                     source_warnings.append(f"MySQL {src.db_name}: {res.error}")
             elif src.source_type == SourceType.POSTGRES:
+                emit(2, f"Membuat dump PostgreSQL: {src.db_name}", src_pct)
                 res = db_dump_service.dump_postgres(
                     host=src.db_host, port=src.db_port, name=src.db_name,
                     user=src.db_user, password=src.db_password, out_dir=str(dump_dir),
@@ -131,6 +159,7 @@ def run_backup(project_id: int, *, trigger: str = "manual") -> dict:
             )
 
         # 3) Create archive
+        emit(3, "Membuat arsip (kompresi)...", 45)
         ext = "zip" if archive_format == "zip" else "tar.gz"
         archive_name = f"{_safe_name(project_name)}_{_timestamp_slug()}.{ext}"
         archive_path = str(Path(staging) / archive_name)
@@ -148,7 +177,11 @@ def run_backup(project_id: int, *, trigger: str = "manual") -> dict:
         # 4) Upload to each destination
         upload_results: list[dict] = []
         any_ok = False
-        for dest in destinations:
+        total_dest = len(destinations) or 1
+        for idx, dest in enumerate(destinations):
+            # Spread uploads across the 70%..95% progress band.
+            up_pct = 70 + int(25 * (idx / total_dest))
+            emit(4, f"Mengunggah ke {dest.name}...", up_pct)
             try:
                 config = json.loads(dest.config_json or "{}")
             except json.JSONDecodeError:
@@ -172,6 +205,7 @@ def run_backup(project_id: int, *, trigger: str = "manual") -> dict:
             any_ok = any_ok or up.ok
 
         # 5) Determine status
+        emit(5, "Menyelesaikan...", 96)
         all_ok = all(r["ok"] for r in upload_results)
         if all_ok and not source_warnings:
             status = "success"

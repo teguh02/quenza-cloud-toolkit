@@ -11,6 +11,18 @@
 
 {% block content %}
 <div class="space-y-6">
+  {# Proses berjalan (realtime) — diisi oleh jobs.js, tampil bila ada job aktif #}
+  <section id="active-jobs" class="hidden rounded-3xl border border-line bg-surface p-6 shadow-card">
+    <div class="mb-4 flex items-center gap-2">
+      <span class="relative flex h-2.5 w-2.5">
+        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-teal opacity-75"></span>
+        <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-brand-teal"></span>
+      </span>
+      <h2 class="text-base font-bold text-heading">Proses Berjalan</h2>
+    </div>
+    <div id="active-jobs-list" class="space-y-3"></div>
+  </section>
+
   {# Summary chips #}
   <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
     {% set chips = [
@@ -153,7 +165,10 @@
 
 {% block scripts %}
 <script src="/static/js/modal.js"></script>
+<script src="/static/js/jobs.js"></script>
 <script>
+  window.QuenzaJobs && QuenzaJobs.init({ pollMs: 2500 });
+
   window.QuenzaHistory = (function () {
     function showDetail(id, message, detail) {
       var msg = document.getElementById("log-detail-msg");

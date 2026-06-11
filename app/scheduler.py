@@ -20,7 +20,6 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.database import SessionLocal
 from app.models import Schedule
-from app.services import backup_service
 
 logger = logging.getLogger("quenza.scheduler")
 
@@ -32,17 +31,22 @@ def _job_id(project_id: int) -> str:
 
 
 def _run_scheduled_backup(project_id: int) -> None:
-    """Job target: execute a backup with the 'schedule' trigger."""
-    logger.info("Scheduled backup starting for project %s", project_id)
+    """Job target: enqueue a background backup with the 'schedule' trigger.
+
+    Delegating to job_service keeps scheduled runs tracked as jobs (with live
+    progress) and consistent with manual runs. If the project already has an
+    active job, the run is skipped (logged).
+    """
+    logger.info("Scheduled backup triggering for project %s", project_id)
     try:
-        result = backup_service.run_backup(project_id, trigger="schedule")
-        logger.info(
-            "Scheduled backup for project %s finished: %s",
-            project_id,
-            result.get("status"),
-        )
-    except Exception:  # pragma: no cover - safety net
-        logger.exception("Scheduled backup crashed for project %s", project_id)
+        from app.services import job_service
+
+        job_id = job_service.enqueue_backup(project_id, trigger="schedule")
+        logger.info("Scheduled backup enqueued for project %s as job %s",
+                    project_id, job_id)
+    except Exception as exc:  # JobBusyError or others — never crash the scheduler
+        logger.warning("Scheduled backup for project %s not started: %s",
+                       project_id, exc)
 
 
 def _scheduler_timezone() -> str:

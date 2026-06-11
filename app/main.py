@@ -59,6 +59,16 @@ async def lifespan(_app: FastAPI):
     except Exception:  # pragma: no cover - scheduler must not block startup
         logger.exception("Failed to start the scheduler.")
 
+    # Recover orphaned background jobs left 'running' by a previous process.
+    try:
+        from app.services import job_service
+
+        n = job_service.mark_interrupted_on_startup()
+        if n:
+            logger.info("Marked %s leftover backup job(s) as interrupted.", n)
+    except Exception:  # pragma: no cover
+        logger.exception("Failed to run job recovery sweep.")
+
     yield
 
     # Shutdown.
@@ -66,6 +76,18 @@ async def lifespan(_app: FastAPI):
         from app import scheduler
 
         scheduler.shutdown()
+    except Exception:  # pragma: no cover
+        pass
+    try:
+        from app.services import job_service
+
+        job_service.shutdown()
+    except Exception:  # pragma: no cover
+        pass
+    try:
+        from app.services import source_size_service
+
+        source_size_service.shutdown()
     except Exception:  # pragma: no cover
         pass
 

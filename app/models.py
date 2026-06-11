@@ -267,6 +267,51 @@ class BackupLog(Base):
         return f"<BackupLog id={self.id} action={self.action} status={self.status}>"
 
 
+class BackupJob(Base):
+    """A background backup job with live progress for realtime monitoring.
+
+    Distinct from BackupLog (which is the final, immutable record). A job
+    moves through: queued -> running -> success|partial|failed|interrupted.
+    `log_id` links to the BackupLog written when the job finishes.
+    """
+
+    __tablename__ = "backup_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    project_name: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    action: Mapped[str] = mapped_column(String(32), default="backup", nullable=False)
+    trigger: Mapped[str] = mapped_column(String(16), default="manual", nullable=False)
+
+    # queued | running | success | partial | failed | interrupted
+    status: Mapped[str] = mapped_column(
+        String(16), default="queued", nullable=False, index=True
+    )
+    progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    current_step: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    step_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_steps: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    message: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    detail_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    log_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False, index=True
+    )
+    started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finished_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<BackupJob id={self.id} status={self.status} progress={self.progress}>"
+
+
 class AppMeta(Base):
     """Key/value table for lightweight application metadata."""
 

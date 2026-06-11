@@ -17,6 +17,7 @@ from app.auth import require_api_auth, require_login
 from app.database import get_db
 from app.services import (
     destination_service,
+    job_service,
     log_service,
     restore_service,
 )
@@ -74,6 +75,31 @@ async def history_page(
             "filter_status": status,
         },
     )
+
+
+# --- Background jobs (realtime monitoring) ----------------------------------
+
+
+@router.get("/api/jobs/active", response_model=None)
+async def jobs_active(
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_api_auth),
+) -> JSONResponse:
+    """Return queued/running backup jobs for realtime monitoring."""
+    return JSONResponse({"jobs": job_service.list_active(db)})
+
+
+@router.get("/api/jobs/{job_id}", response_model=None)
+async def job_detail(
+    job_id: int,
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_api_auth),
+) -> JSONResponse:
+    """Return a single job's status/progress."""
+    job = job_service.get(db, job_id)
+    if job is None:
+        return JSONResponse({"error": "Job tidak ditemukan."}, status_code=404)
+    return JSONResponse({"job": job})
 
 
 # --- Restore ----------------------------------------------------------------
