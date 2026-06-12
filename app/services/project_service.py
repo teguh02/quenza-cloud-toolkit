@@ -160,11 +160,25 @@ def add_source(
     if stype in (SourceType.DIRECTORY, SourceType.FILE):
         if not (path or "").strip():
             raise ValueError("Path tidak boleh kosong untuk sumber direktori/file.")
+            
+        clean_path = path.strip()
+        
+        # Validation for duplicate source
+        existing = db.scalars(
+            select(BackupSource)
+            .where(BackupSource.project_id == project_id)
+            .where(BackupSource.source_type == stype)
+            .where(BackupSource.path == clean_path)
+        ).first()
+        
+        if existing:
+            raise ValueError("Sumber direktori sudah ada.")
+            
         source = BackupSource(
             project_id=project_id,
             source_type=stype,
             label=(label or "").strip(),
-            path=path.strip(),
+            path=clean_path,
         )
     else:  # MYSQL / POSTGRES
         if not (db_name or "").strip():
