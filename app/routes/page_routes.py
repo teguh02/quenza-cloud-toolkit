@@ -96,6 +96,22 @@ async def help_page(request: Request) -> HTMLResponse | RedirectResponse:
     )
 
 
+@router.get("/filemanager", response_class=HTMLResponse, name="filemanager", response_model=None)
+async def filemanager_page(request: Request) -> HTMLResponse | RedirectResponse:
+    """Render the standalone file manager page."""
+    guard = require_login(request)
+    if guard is not None:
+        return guard
+    return templates.TemplateResponse(
+        request,
+        "filemanager.html",
+        {
+            "active_page": "filemanager",
+            "page_title": "File Manager",
+            "page_subtitle": "Pengelola direktori dan file mandiri pada server.",
+        },
+    )
+
 # --- Sidebar placeholder pages ---------------------------------------------
 
 # (key, path, title, subtitle, icon, tone, fg)

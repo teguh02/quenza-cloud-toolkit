@@ -14,6 +14,7 @@ Design notes:
 from __future__ import annotations
 
 import os
+import shutil
 import string
 from datetime import datetime, timezone
 from pathlib import Path
@@ -181,3 +182,74 @@ def _error(path: str, message: str) -> dict:
         "entries": [],
         "error": message,
     }
+
+
+def create_folder(path: str, name: str) -> dict:
+    """Create a new folder inside the given absolute path."""
+    try:
+        target_dir = Path(path).resolve(strict=True)
+        if not target_dir.is_dir():
+            return _error(path, "Direktori induk tidak valid.")
+        new_dir = target_dir / name
+        new_dir.mkdir(parents=True, exist_ok=False)
+        return {"ok": True, "path": str(new_dir)}
+    except FileExistsError:
+        return _error(path, "Direktori dengan nama tersebut sudah ada.")
+    except (OSError, RuntimeError) as exc:
+        return _error(path, f"Gagal membuat direktori: {exc}")
+
+
+def create_file(path: str, name: str) -> dict:
+    """Create an empty file inside the given absolute path."""
+    try:
+        target_dir = Path(path).resolve(strict=True)
+        if not target_dir.is_dir():
+            return _error(path, "Direktori induk tidak valid.")
+        new_file = target_dir / name
+        if new_file.exists():
+            return _error(path, "File dengan nama tersebut sudah ada.")
+        new_file.touch(exist_ok=False)
+        return {"ok": True, "path": str(new_file)}
+    except (OSError, RuntimeError) as exc:
+        return _error(path, f"Gagal membuat file: {exc}")
+
+
+def read_file_content(path: str) -> dict:
+    """Read file content safely (max 1MB, utf-8 only)."""
+    try:
+        target = Path(path).resolve(strict=True)
+        if not target.is_file():
+            return _error(path, "Path bukan sebuah file.")
+        if target.stat().st_size > 1024 * 1024:
+            return _error(path, "Ukuran file melebihi batas 1MB.")
+        content = target.read_text(encoding="utf-8")
+        return {"ok": True, "content": content, "path": str(target)}
+    except UnicodeDecodeError:
+        return _error(path, "File biner tidak dapat diedit sebagai teks.")
+    except (OSError, RuntimeError) as exc:
+        return _error(path, f"Gagal membaca file: {exc}")
+
+
+def write_file_content(path: str, content: str) -> dict:
+    """Write text content back to a file."""
+    try:
+        target = Path(path).resolve(strict=True)
+        if not target.is_file():
+            return _error(path, "Path bukan sebuah file.")
+        target.write_text(content, encoding="utf-8")
+        return {"ok": True, "path": str(target)}
+    except (OSError, RuntimeError) as exc:
+        return _error(path, f"Gagal menyimpan file: {exc}")
+
+
+def delete_target(path: str) -> dict:
+    """Delete a file or recursively delete a directory."""
+    try:
+        target = Path(path).resolve(strict=True)
+        if target.is_dir():
+            shutil.rmtree(target)
+        else:
+            target.unlink()
+        return {"ok": True, "path": str(target)}
+    except (OSError, RuntimeError) as exc:
+        return _error(path, f"Gagal menghapus item: {exc}")

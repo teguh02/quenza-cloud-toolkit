@@ -395,9 +395,41 @@ Lihat detail di [`docs/INSTALL.md`](docs/INSTALL.md).
 
 Bagian ini mendokumentasikan rencana fitur berikutnya secara detail agar
 kontributor lain (manusia maupun AI) dapat melanjutkan dengan konteks penuh.
-Status: **belum dikerjakan** (perencanaan). Urutan implementasi yang disarankan:
-**FW#3 → FW#1 → FW#2** (FW#3 menjadi fondasi; backup Docker menumpang
-mekanisme job FW#3).
+
+**Status Saat Ini:** FW#3 (Background Jobs & Monitoring) **Telah Selesai**.
+
+### Analisis Skala Prioritas Implementasi (1 - 5)
+
+Berikut adalah analisis dan usulan skala prioritas dari 1 (Paling Mendesak/Mudah) hingga 5 (Paling Kompleks/Akhir) untuk rencana pengembangan selanjutnya:
+
+**1. Skala Prioritas 1: FW#4 — Standalone File Manager**
+   - **Tingkat Kesulitan:** Rendah (*Low hanging fruit*).
+   - **Dampak Kemanfaatan:** Sangat Tinggi. Memberikan pengguna antarmuka layaknya *cPanel* dasar untuk mengelola server tanpa menggunakan SSH.
+   - **Analisa:** Fungsionalitas inti untuk *backend* navigasi direktori (`filemanager_service.py`) sudah ada di dalam Quenza. Kita hanya perlu mengeluarkannya menjadi antarmuka mandiri, menambahkan fungsionalitas CRUD (*Create, Read, Update, Delete*), dan mengamankan tombol hapus dengan *Math CAPTCHA*. Eksekusinya akan sangat cepat dan aman.
+
+**2. Skala Prioritas 2: FW#5 (Tahap 1) — System Info & Task Manager**
+   - **Tingkat Kesulitan:** Rendah ke Sedang.
+   - **Dampak Kemanfaatan:** Tinggi. Menjadi fitur komplementer bagi File Manager untuk memonitor stabilitas server.
+   - **Analisa:** Pustaka `psutil` di Python adalah standar industri untuk memantau performa OS secara *cross-platform* (Windows/Linux) tanpa konfigurasi rumit. Menampilkan RAM, Storage, dan menghentikan proses (*Task Kill*) bisa langsung diimplementasikan karena tidak butuh dependensi eksternal selain pip library.
+
+**3. Skala Prioritas 3: FW#1 — Docker Management**
+   - **Tingkat Kesulitan:** Tinggi.
+   - **Dampak Kemanfaatan:** Menengah ke Tinggi. Sangat bernilai untuk lingkungan *deployment* server modern.
+   - **Analisa:** Membutuhkan integrasi SDK `docker` baru. Ini melibatkan risiko keamanan tinggi (akses ke *socket docker* setara *root*) dan memerlukan rancangan UI/UX *tab* baru untuk pengelolaan *Containers, Images*, dan *Volumes*. Sebaiknya diimplementasikan ketika fondasi pengelolaan sistem (File & Proses) pada skala 1 & 2 telah matang.
+
+**4. Skala Prioritas 4: FW#2 — Docker Backup**
+   - **Tingkat Kesulitan:** Menengah.
+   - **Dampak Kemanfaatan:** Menengah.
+   - **Analisa:** Fitur ini **mutlak** harus menunggu selesainya Skala Prioritas 3 (FW#1). Tanpa adanya koneksi yang mapan ke *engine* Docker, modul *backup* tidak bisa menarik data *container* atau *volume* dengan benar. Alurnya akan berjalan mulus jika disandarkan pada mesin penjadwalan asinkron (*background job*) yang sebelumnya telah selesai dibangun di FW#3.
+
+**5. Skala Prioritas 5: FW#5 (Tahap 2) — Security Module (Antivirus, YARA, Firewall)**
+   - **Tingkat Kesulitan:** Sangat Tinggi (Maksimal).
+   - **Dampak Kemanfaatan:** Menengah ke Tinggi (Sangat *niche* / perlindungan keamanan mendalam).
+   - **Analisa:** Ini adalah fitur dengan interaksi level OS paling kompleks dan intens:
+     - Membutuhkan instalasi mesin *engine* ClamAV di sistem operasi server yang terpisah dari *environment* Python.
+     - Menuntut abstraksi arsitektur *Firewall* yang sangat berbeda antara Linux (`ufw`/`iptables`) dan Windows (`netsh`).
+     - Pemindaian menggunakan *YARA rules* berpotensi menyebabkan lonjakan beban baca/tulis (*I/O bottleneck*).
+     Oleh karena itu, sub-fitur ini dialokasikan pada skala 5 sebagai misi penutup (*Endgame*) yang butuh kehati-hatian paling tinggi dalam pengujian lintas *platform*.
 
 ### Konteks arsitektur saat ini (penting dipahami dulu)
 
@@ -579,3 +611,53 @@ job/progres).
 - **Verifikasi:** fitur Docker butuh lingkungan ber-Docker untuk uji nyata;
   pada sandbox, uji jalur kode dengan mock + graceful failure dan nyatakan
   batasannya secara jujur.
+
+---
+
+### FW#4 — Standalone File Manager
+
+**Tujuan:** Memisahkan fitur File Manager menjadi menu mandiri (independen dari Project), dengan fungsionalitas manajemen file lengkap dan proteksi khusus untuk operasi destruktif.
+
+**Keputusan desain:**
+- **Menu Baru:** Tab "File Manager" di navigasi utama, terpisah dari modul Project.
+- **Fungsionalitas Standar:** Navigasi hierarki direktori, masuk/keluar folder, buat folder, buat file baru, edit isi file teks langsung dari browser, dan hapus direktori/file.
+- **Proteksi Hapus (Math CAPTCHA):** Konfirmasi penghapusan file/folder di UI tidak sekadar menekan tombol "Ya/Tidak" atau "Delete", melainkan mengharuskan pengguna menjawab hasil penjumlahan acak dari angka 1-20 (misal: "Berapa 12 + 7?"). Hal ini untuk meminimalisir kesalahan fatal dari manusia (*human error*).
+
+**Integrasi & Arsitektur:**
+- Melakukan refactor pada `filemanager_service.py` dan `filemanager_routes.py` agar dapat berjalan mandiri.
+- Menerapkan validasi keamanan (*path traversal protection*) secara ketat untuk mencegah akses *file manager* keluar dari batasan direktori *root jail* atau drive yang diizinkan oleh sistem operasi.
+
+---
+
+### FW#5 — Security Module (Sistem Keamanan Terpadu)
+
+**Tujuan:** Menyediakan modul keamanan lintas platform (Linux & Windows) untuk *monitoring* sistem, pencegahan ancaman (*malware/backdoor*), dengan antarmuka yang terbagi dalam bentuk tab.
+
+**Sub-Modul (Berdasarkan Tab):**
+
+1. **System & Network Info:**
+   - Menampilkan IP Address (Lokal & Publik).
+   - Indikator penggunaan RAM dan kapasitas Penyimpanan (*Storage/Disk*) saat ini.
+   - Menampilkan daftar pustaka sistem (*library*) yang terinstal dan daftar repositori *update* OS.
+   - **Teknologi:** Menggunakan pustaka *cross-platform* standar `psutil` (untuk metrik RAM, Storage, Network) dan `subprocess` untuk *query package manager* dari OS target (misal: `apt`, `Get-Package`).
+
+2. **Task Manager:**
+   - Menampilkan antarmuka daftar proses/tugas yang sedang berjalan di *server*.
+   - Fitur "Kill Process" untuk membunuh tugas/aplikasi yang berbahaya, *hang*, atau memakan sumber daya tidak wajar.
+   - **Teknologi:** Kombinasi `psutil.process_iter()` untuk memuat daftar proses, dan `Process.kill()` untuk memberhentikannya.
+
+3. **Firewall Manager:**
+   - Antarmuka untuk meninjau aturan yang ada dan memanajemen firewall bawaan OS.
+   - **Teknologi:** Menggunakan pola abstraksi *Adapter*. Di Linux berinteraksi via *wrapper* perintah `ufw` atau `iptables`. Di Windows berinteraksi via perintah PowerShell `netsh advfirewall`.
+
+4. **Antivirus & Malware Scanner:**
+   - **Pemindaian Berbasis Basis Data Terbuka:** Dirancang menggunakan **ClamAV** (antivirus gratis, *open-source*, dan banyak digunakan). Integrasi ke dalam Python dapat melalui pustaka `pyclamd` atau pemanggilan baris perintah CLI `clamscan`.
+   - **Pemindaian Kustom & Heuristik Berbasis Teks:** Untuk mendeteksi serangan dari dalam, seperti "Alfa malware" atau *backdoor* kode spesifik yang disisipkan ke kode asli (contoh: pada PHP WordPress), aplikasi akan menggunakan pemindai konten kustom. Teknologi yang disarankan adalah **YARA rules** (`yara-python`), yang bertindak seperti utilitas teks super untuk mengekstrak dan mencocokkan skrip mencurigakan secara terstruktur.
+   - **Pemilihan Target & Penjadwalan:**
+     - Tersedia antarmuka layaknya *File Manager* dimana pengguna dapat menelusuri lalu memberi centang (*checkbox*) pada folder-folder/file mana saja yang akan dimasukkan ke daftar pantau pemindaian.
+     - Pemindaian akan berjalan otomatis di latar belakang sesuai jadwal menggunakan `APScheduler`.
+
+**Risiko Keamanan & Pertimbangan Lintas Platform:**
+- Mengizinkan aksi "Kill Task" dan modifikasi "Firewall" dari portal Web sangat berbahaya. FW#5 **WAJIB** dilindungi otorisasi tingkat lanjut (seperti mewajibkan pengguna mengetik ulang Master Password untuk *action* mematikan tugas).
+- Karena Quenza ditujukan lintas platform, implementasi FW#5 wajib mendeteksi tipe SO (`platform.system()`) secara *graceful*.
+- Pemindaian Antivirus (*scanning*) berpotensi menyebabkan lonjakan beban I/O dan CPU. Eksekusinya wajib diarahkan ke sebuah proses/thread berprioritas rendah (misal: `os.nice()`) agar Quenza tidak mengalami jeda saat melayani permintaan web lain.
