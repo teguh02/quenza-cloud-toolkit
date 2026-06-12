@@ -231,70 +231,76 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
         targets = json.loads(targets_setting.value) if targets_setting and targets_setting.value else []
         auto_quarantine = (auto_quarantine_setting and auto_quarantine_setting.value == "1")
         
+        status = "success"
+        msg = "Pencarian dibatalkan."
+        detail = {}
+        total_files = 0
+        findings = []
+        quarantined = []
+        
         if not targets:
             logger.info("No targets configured for standalone scan. Skipping.")
-            return {"status": "success", "message": "Tidak ada target direktori untuk dipindai."}
-
-        emit(1, "Menghimpun daftar file...", 10)
-        files_to_scan = []
-        for target in targets:
-            if not os.path.exists(target):
-                continue
-            if os.path.isdir(target):
-                for root, _, files in os.walk(target):
-                    for name in files:
-                        files_to_scan.append(os.path.join(root, name))
+            msg = "Tidak ada target direktori untuk dipindai."
+        else:
+            emit(1, "Menghimpun daftar file...", 10)
+            files_to_scan = []
+            for target in targets:
+                if not os.path.exists(target):
+                    continue
+                if os.path.isdir(target):
+                    for root, _, files in os.walk(target):
+                        for name in files:
+                            files_to_scan.append(os.path.join(root, name))
+                else:
+                    files_to_scan.append(target)
+                    
+            total_files = len(files_to_scan)
+            if total_files == 0:
+                logger.info("No files found in targets.")
+                msg = "Tidak ditemukan file pada target direktori."
             else:
-                files_to_scan.append(target)
-                
-        total_files = len(files_to_scan)
-        if total_files == 0:
-            logger.info("No files found in targets.")
-            return {"status": "success", "message": "Tidak ditemukan file pada target direktori."}
+                rules = get_yara_rules()
+                if not rules:
+                    status = "failed"
+                    msg = "Mesin YARA (aturan deteksi) gagal dimuat."
+                else:
+                    emit(2, f"Memindai {total_files} file...", 20)
+                    for i, filepath in enumerate(files_to_scan):
+                        if i % max(1, total_files // 20) == 0:
+                            pct = 20 + int((i / total_files) * 70)
+                            emit(2, f"Memindai file ke-{i} dari {total_files}...", pct)
 
-        rules = get_yara_rules()
-        if not rules:
-            return {"status": "failed", "message": "Mesin YARA (aturan deteksi) gagal dimuat."}
+                        triggered = scan_file(filepath)
+                        if triggered:
+                            findings.append({"file": filepath, "rules": triggered})
+                    
+                    emit(3, "Menganalisa dan karantina...", 95)
+                    if auto_quarantine and findings:
+                        logger.info(f"Auto-quarantining {len(findings)} detected files.")
+                        for f in findings:
+                            filepath = f["file"]
+                            rule_matched = ", ".join(f["rules"])
+                            try:
+                                if os.path.exists(filepath):
+                                    quarantine_file(filepath, rule_matched, db=db)
+                                    quarantined.append({"file": filepath, "status": "quarantined"})
+                            except Exception as e:
+                                logger.error(f"Failed to auto-quarantine {filepath}: {e}")
+                                quarantined.append({"file": filepath, "status": "error", "error": str(e)})
+                    elif findings:
+                        logger.warning(f"Standalone scan found {len(findings)} malware, but auto-quarantine is OFF.")
+                    
+                    if findings:
+                        status = "failed"
+                        msg = f"Peringatan! Ditemukan {len(findings)} file terinfeksi."
+                        if auto_quarantine:
+                            msg += f" {len(quarantined)} file berhasil dikarantina."
+                    else:
+                        status = "success"
+                        msg = f"Sistem aman. {total_files} file bersih tanpa masalah."
 
-        emit(2, f"Memindai {total_files} file...", 20)
-        findings = []
-        for i, filepath in enumerate(files_to_scan):
-            if i % max(1, total_files // 20) == 0:
-                pct = 20 + int((i / total_files) * 70)
-                emit(2, f"Memindai file ke-{i} dari {total_files}...", pct)
-
-            triggered = scan_file(filepath)
-            if triggered:
-                findings.append({"file": filepath, "rules": triggered})
-        
-        emit(3, "Menganalisa dan karantina...", 95)
-        quarantined = []
-        if auto_quarantine and findings:
-            logger.info(f"Auto-quarantining {len(findings)} detected files.")
-            for f in findings:
-                filepath = f["file"]
-                rule_matched = ", ".join(f["rules"])
-                try:
-                    if os.path.exists(filepath):
-                        quarantine_file(filepath, rule_matched, db=db)
-                        quarantined.append({"file": filepath, "status": "quarantined"})
-                except Exception as e:
-                    logger.error(f"Failed to auto-quarantine {filepath}: {e}")
-                    quarantined.append({"file": filepath, "status": "error", "error": str(e)})
-        elif findings:
-            logger.warning(f"Standalone scan found {len(findings)} malware, but auto-quarantine is OFF.")
-            
         duration_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
         
-        if findings:
-            status = "failed"
-            msg = f"Peringatan! Ditemukan {len(findings)} file terinfeksi."
-            if auto_quarantine:
-                msg += f" {len(quarantined)} file berhasil dikarantina."
-        else:
-            status = "success"
-            msg = f"Sistem aman. {total_files} file bersih tanpa masalah."
-
         detail = {
             "total_files_scanned": total_files,
             "findings": findings,
@@ -325,6 +331,28 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
             
     except Exception as e:
         logger.error(f"Scan failed: {e}")
-        return {"status": "failed", "message": f"Terjadi kesalahan saat memindai: {e}"}
+        
+        # Write error log to BackupLog
+        duration_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
+        from app.models import BackupLog
+        blog = BackupLog(
+            project_id=None,
+            project_name="Security Scanner",
+            action="scan",
+            status="failed",
+            trigger=trigger,
+            message=f"Terjadi kesalahan saat memindai: {e}",
+            detail_json="{}",
+            duration_ms=duration_ms
+        )
+        db.add(blog)
+        db.commit()
+        db.refresh(blog)
+        
+        return {
+            "status": "failed",
+            "message": f"Terjadi kesalahan saat memindai: {e}",
+            "log_id": blog.id
+        }
     finally:
         db.close()

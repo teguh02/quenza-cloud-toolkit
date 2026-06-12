@@ -9,7 +9,20 @@
 </div>
 
 {# Main Container #}
-<div class="flex flex-col md:flex-row gap-6">
+<div class="space-y-6">
+  {# Realtime jobs (diisi oleh jobs.js) #}
+  <section id="active-jobs" class="hidden rounded-3xl border border-line bg-surface p-6 shadow-card">
+    <div class="mb-4 flex items-center gap-2">
+      <span class="relative flex h-2.5 w-2.5">
+        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-teal opacity-75"></span>
+        <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-brand-teal"></span>
+      </span>
+      <h2 class="text-base font-bold text-heading">Proses Berjalan</h2>
+    </div>
+    <div id="active-jobs-list" class="space-y-3"></div>
+  </section>
+
+  <div class="flex flex-col md:flex-row gap-6">
   
   {# Sidebar / Tab Controls #}
   <div class="w-full md:w-64 shrink-0">
@@ -70,6 +83,7 @@
       
     </div>
   </div>
+</div>
 </div>
 
 {# Auth/Action Modal #}
@@ -133,7 +147,9 @@
 <script src="/static/js/modal.js"></script>
 <script src="/static/js/filemanager.js?v=2"></script>
 <script src="/static/js/security.js"></script>
+<script src="/static/js/jobs.js"></script>
 <script>
+  window.QuenzaJobs && QuenzaJobs.init({ pollMs: 2000 });
   document.addEventListener("DOMContentLoaded", function() {
     SecurityMgmt.init();
     if (window.QuenzaFileManager) {

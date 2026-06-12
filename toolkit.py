@@ -22,6 +22,7 @@ Commands:
     backup [project_id]    Run a manual backup
     check-update           Check whether a newer version is available
     update [--yes]         Update from GitHub, reinstall deps, restart service
+    update-yara            Download or update YARA rules database
     help                   Show this help
 
 Run inside the project's virtual environment so dependencies are available,
@@ -969,6 +970,8 @@ def main(argv: list[str]) -> int:
         elif cmd == "update":
             assume_yes = ("--yes" in rest) or ("-y" in rest)
             do_update(assume_yes=assume_yes, interactive=not assume_yes)
+        elif cmd == "update-yara":
+            _update_yara_rules()
         else:
             err(f"Perintah tidak dikenal: {cmd}")
             _print_help()
