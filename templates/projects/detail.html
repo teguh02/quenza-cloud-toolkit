@@ -199,14 +199,7 @@
               </label>
             </div>
           </div>
-          <div>
-            <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Keamanan</label>
-            <label class="flex cursor-pointer items-center justify-between rounded-xl border border-line bg-canvas px-4 py-3 transition-all duration-quenza ease-quenza has-[:checked]:border-brand-teal has-[:checked]:bg-surface has-[:checked]:ring-2 has-[:checked]:ring-brand-teal/25">
-              <span class="text-sm font-semibold text-heading">Scan Malware sebelum Backup</span>
-              <input type="checkbox" name="enable_malware_scan" value="1" class="h-4 w-4 accent-brand-teal" {{ "checked" if project.enable_malware_scan }} />
-            </label>
-            <p class="mt-1.5 text-[11px] text-secondary">Akan memindai sumber file/direktori dengan YARA (Antivirus & Webshell scanner) sebelum dilakukan kompresi arsip.</p>
-          </div>
+
           <button type="submit"
             class="w-full rounded-xl bg-brand-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
             Simpan Perubahan

@@ -208,10 +208,17 @@
       
       // Target paths
       html += '<div class="rounded-xl border border-line bg-canvas/30 p-5">';
+      html += '<div class="flex items-center justify-between mb-4">';
+      html += '<div>';
       html += '<h3 class="text-sm font-bold text-heading mb-1">Target Direktori Scan</h3>';
-      html += '<p class="text-xs text-secondary mb-4">Daftar path file atau direktori yang akan dipindai.</p>';
+      html += '<p class="text-xs text-secondary">Daftar path file atau direktori yang akan dipindai.</p>';
+      html += '</div>';
+      html += '<button type="button" onclick="QuenzaModal.open(\'modal-file-manager\')" class="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-3.5 py-2 text-xs font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03]">';
+      html += '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+      html += 'File Explorer</button>';
+      html += '</div>';
       html += '<textarea id="av-targets" class="w-full h-24 rounded-xl border border-line bg-surface p-3 text-xs font-mono focus:border-brand-teal focus:outline-none" placeholder="/path/to/folder\n/another/path">' + (conf.av_targets.join('\\n')) + '</textarea>';
-      html += '<p class="text-[11px] text-secondary mt-1">Masukkan satu path per baris.</p>';
+      html += '<p class="text-[11px] text-secondary mt-1">Masukkan satu path per baris, atau gunakan tombol Explorer di atas.</p>';
       html += '</div>';
       html += '</div>'; // End grid
       

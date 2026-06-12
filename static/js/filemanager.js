@@ -18,6 +18,7 @@
     parent: null,
     selected: new Set(),
     loading: false,
+    onSubmitCallback: null
   };
 
   // --- DOM helpers -----------------------------------------------------------
@@ -344,6 +345,13 @@
 
   // --- Submit ----------------------------------------------------------------
   function onSubmit(e) {
+    if (state.onSubmitCallback) {
+      e.preventDefault();
+      var paths = [];
+      state.selected.forEach(function (p) { paths.push(p); });
+      state.onSubmitCallback(paths);
+      return;
+    }
     var form = $("fm-form");
     var holder = $("fm-selected-inputs");
     if (!form || !holder) return;
@@ -372,6 +380,7 @@
     opts = opts || {};
     state.projectId = opts.projectId;
     state.addPathsAction = opts.addPathsAction || "";
+    state.onSubmitCallback = opts.onSubmitCallback || null;
 
     var form = $("fm-form");
     if (form) {

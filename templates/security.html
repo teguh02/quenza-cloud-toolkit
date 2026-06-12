@@ -124,13 +124,35 @@
     
   </div>
 </div>
+
+{# ============== MODALS ============== #}
+{% include "projects/_file_manager_modal.html" ignore missing %}
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/modal.js"></script>
+<script src="/static/js/filemanager.js"></script>
 <script src="/static/js/security.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     SecurityMgmt.init();
+    if (window.QuenzaFileManager) {
+      QuenzaFileManager.init({
+        onSubmitCallback: function(paths) {
+          var ta = document.getElementById("av-targets");
+          if (ta) {
+            var current = ta.value.split("\\n").map(function(s){return s.trim()}).filter(function(s){return s.length > 0;});
+            paths.forEach(function(p) {
+              if (current.indexOf(p) === -1) {
+                current.push(p);
+              }
+            });
+            ta.value = current.join("\\n");
+          }
+          QuenzaModal.close("modal-file-manager");
+        }
+      });
+    }
   });
 </script>
 {% endblock %}

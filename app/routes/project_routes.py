@@ -183,7 +183,6 @@ async def project_update(
     project_id: int,
     description: str = Form(""),
     archive_format: str = Form("zip"),
-    enable_malware_scan: str = Form(""),
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
     """Update project metadata and output format."""
@@ -197,7 +196,6 @@ async def project_update(
             project_id,
             description=description,
             archive_format=archive_format,
-            enable_malware_scan=bool(enable_malware_scan),
         )
     except ValueError as exc:
         return _redirect(f"/projects/{project_id}", msg=str(exc), type="error")

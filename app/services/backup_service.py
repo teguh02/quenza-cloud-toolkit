@@ -114,28 +114,6 @@ def run_backup(
         dump_dir = Path(staging) / "_dumps"
         dump_dir.mkdir(parents=True, exist_ok=True)
 
-        # 1.5) Scan for malware if enabled
-        if getattr(project, "enable_malware_scan", False):
-            emit(2, "Memindai malware...", 5)
-            from app.services import scanner_service
-            import os
-            scan_findings = []
-            for src in sources:
-                if src.source_type in (SourceType.DIRECTORY, SourceType.FILE) and src.path:
-                    if os.path.isdir(src.path):
-                        scan_findings.extend(scanner_service.scan_directory(src.path))
-                    elif os.path.isfile(src.path):
-                        triggered = scanner_service.scan_file(src.path)
-                        if triggered:
-                            scan_findings.append({"file": src.path, "rules": triggered})
-            
-            if scan_findings:
-                logger.warning(f"Malware terdeteksi pada project {project_id}: {scan_findings}")
-                detail = {"malware_findings": scan_findings}
-                return _finalize(
-                    db, project, "Backup dibatalkan: Ditemukan indikasi malware/webshell.",
-                    "failed", trigger, started, detail,
-                )
 
         # 2) Collect archive items (filesystem sources + DB dumps)
         emit(2, "Menyiapkan sumber backup...", 8)
