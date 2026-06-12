@@ -35,7 +35,7 @@ OS=""; ARCH=""; PKG_MGR=""; PY_BIN=""; HAS_GIT=0; HAS_SYSTEMD=0
 INSTALL_DIR=""; PORT="$DEFAULT_PORT"; PUBLIC_URL=""; HOST_IP="127.0.0.1"
 MASTER_PASSWORD=""; SUDO=""; LOG_FILE=""; CURRENT_STEP="inisialisasi"
 SERVICE_KIND=""   # systemd | cron | none
-STEP_NO=0; STEP_TOTAL=6   # progress counter for run_step
+STEP_NO=0; STEP_TOTAL=7   # progress counter for run_step
 IN_STEP=0                 # when 1, log() skips file append (tee handles it)
 
 # ==============================================================================
@@ -464,6 +464,36 @@ download_project() {
 }
 
 # ==============================================================================
+# Stage: YARA rules
+# ==============================================================================
+download_yara_rules() {
+  cd "$INSTALL_DIR" || return 1
+  local rules_dir="app/data/yara_rules"
+  mkdir -p "app/data"
+  if [ -d "$rules_dir/.git" ]; then
+    log_info "Memperbarui basis data YARA..."
+    git -C "$rules_dir" pull --ff-only --progress >/dev/null 2>&1 || true
+  else
+    log_info "Mengunduh basis data YARA (signature-base)..."
+    if [ "$HAS_GIT" = "1" ]; then
+      git clone --depth 1 https://github.com/Neo23x0/signature-base.git "$rules_dir" >/dev/null 2>&1 || true
+    else
+      if command -v curl >/dev/null 2>&1; then
+        curl -fL --progress-bar https://github.com/Neo23x0/signature-base/archive/refs/heads/master.tar.gz -o /tmp/yara.tar.gz || true
+      elif command -v wget >/dev/null 2>&1; then
+        wget --show-progress -q https://github.com/Neo23x0/signature-base/archive/refs/heads/master.tar.gz -O /tmp/yara.tar.gz || true
+      fi
+      if [ -f "/tmp/yara.tar.gz" ]; then
+        mkdir -p "$rules_dir"
+        tar -xzf /tmp/yara.tar.gz -C "$rules_dir" --strip-components=1 >/dev/null 2>&1 || true
+        rm -f /tmp/yara.tar.gz
+      fi
+    fi
+  fi
+  return 0
+}
+
+# ==============================================================================
 # Stage: venv + deps
 # ==============================================================================
 setup_venv() {
@@ -744,6 +774,7 @@ main() {
   check_db_tools
 
   run_step "Mengunduh project" download_project
+  run_step "Mengunduh basis data YARA" download_yara_rules
 
   # Project dir is now valid — relocate the log inside it.
   if [ -d "$INSTALL_DIR" ]; then

@@ -43,7 +43,7 @@ $script:MasterPassword = ""
 $script:LogFile     = ""
 $script:ServiceKind = ""   # nssm | task
 $script:StepNo      = 0
-$script:StepTotal   = 6
+$script:StepTotal   = 7
 
 # --- Logging -----------------------------------------------------------------
 function Write-Log {
@@ -296,6 +296,33 @@ function Get-Project {
         }
     } finally {
         Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# --- Stage: YARA rules -------------------------------------------------------
+function Get-YaraRules {
+    Set-Location $global:InstallDir
+    $rulesDir = Join-Path $global:InstallDir "app\data\yara_rules"
+    New-Item -ItemType Directory -Path (Join-Path $global:InstallDir "app\data") -Force | Out-Null
+    if (Test-Path (Join-Path $rulesDir ".git")) {
+        Log-Info "Memperbarui basis data YARA..."
+        git -C $rulesDir pull --ff-only --progress 2>$null
+    } else {
+        Log-Info "Mengunduh basis data YARA (signature-base)..."
+        if ($script:HasGit) {
+            git clone --depth 1 https://github.com/Neo23x0/signature-base.git $rulesDir 2>$null
+        } else {
+            $tmp = Join-Path $env:TEMP ("yara_" + [guid]::NewGuid().ToString("N"))
+            New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+            $zip = Join-Path $tmp "master.zip"
+            Invoke-WebRequest -Uri "https://github.com/Neo23x0/signature-base/archive/refs/heads/master.zip" -OutFile $zip -UseBasicParsing
+            Expand-Archive -LiteralPath $zip -DestinationPath $tmp -Force
+            New-Item -ItemType Directory -Path $rulesDir -Force | Out-Null
+            Get-ChildItem -LiteralPath (Join-Path $tmp "signature-base-master") -Force | ForEach-Object {
+                Copy-Item -LiteralPath $_.FullName -Destination $rulesDir -Recurse -Force
+            }
+            Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -566,6 +593,7 @@ function Main {
     Test-DbTools
 
     Invoke-Step "Mengunduh project" { Get-Project }
+    Invoke-Step "Mengunduh basis data YARA" { Get-YaraRules }
 
     # Project dir is now valid - relocate the log inside it.
     try {

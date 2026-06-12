@@ -51,6 +51,17 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
 
+    # Lightweight migration for enable_malware_scan
+    try:
+        with engine.begin() as conn:
+            from sqlalchemy import text
+            result = conn.execute(text("PRAGMA table_info(projects)"))
+            columns = [row[1] for row in result]
+            if "enable_malware_scan" not in columns:
+                conn.execute(text("ALTER TABLE projects ADD COLUMN enable_malware_scan BOOLEAN DEFAULT 0 NOT NULL"))
+    except Exception:
+        pass
+
 
 def get_db() -> Generator[Session, None, None]:
     """FastAPI dependency that yields a database session."""

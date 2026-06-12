@@ -70,6 +70,7 @@ def update_project(
     description: str | None = None,
     archive_format: str | None = None,
     is_active: bool | None = None,
+    enable_malware_scan: bool | None = None,
 ) -> Project:
     """Update an existing project.
 
@@ -96,6 +97,9 @@ def update_project(
 
     if is_active is not None:
         project.is_active = bool(is_active)
+
+    if enable_malware_scan is not None:
+        project.enable_malware_scan = bool(enable_malware_scan)
 
     db.commit()
     db.refresh(project)

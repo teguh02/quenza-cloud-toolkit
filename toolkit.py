@@ -734,6 +734,58 @@ def _update_via_zip() -> bool:
         _sh.rmtree(tmp, ignore_errors=True)
 
 
+def _update_yara_rules() -> None:
+    rules_dir = os.path.join(ROOT, "app", "data", "yara_rules")
+    if os.path.isdir(os.path.join(rules_dir, ".git")):
+        info("Memperbarui basis data YARA (git pull)...")
+        r = subprocess.run(["git", "-C", rules_dir, "pull", "--ff-only"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if r.returncode == 0:
+            ok("Basis data YARA diperbarui.")
+        else:
+            warn("Gagal memperbarui basis data YARA via git.")
+    else:
+        import tempfile
+        import zipfile
+        import shutil
+        info("Mengunduh basis data YARA terbaru (signature-base)...")
+        tmp = tempfile.mkdtemp(prefix="quenza_yara_")
+        try:
+            zip_path = os.path.join(tmp, "master.zip")
+            url = "https://github.com/Neo23x0/signature-base/archive/refs/heads/master.zip"
+            try:
+                import httpx
+                with httpx.stream("GET", url, follow_redirects=True, timeout=60) as resp:
+                    resp.raise_for_status()
+                    with open(zip_path, "wb") as fh:
+                        for chunk in resp.iter_bytes():
+                            fh.write(chunk)
+            except ImportError:
+                import urllib.request
+                urllib.request.urlretrieve(url, zip_path)  # noqa: S310
+
+            with zipfile.ZipFile(zip_path) as zf:
+                zf.extractall(tmp)
+            
+            os.makedirs(rules_dir, exist_ok=True)
+            extracted_dir = os.path.join(tmp, "signature-base-master")
+            if os.path.isdir(extracted_dir):
+                for name in os.listdir(extracted_dir):
+                    s = os.path.join(extracted_dir, name)
+                    d = os.path.join(rules_dir, name)
+                    if os.path.isdir(s):
+                        shutil.rmtree(d, ignore_errors=True)
+                        shutil.copytree(s, d)
+                    else:
+                        shutil.copy2(s, d)
+                ok("Basis data YARA berhasil diunduh dan diperbarui.")
+            else:
+                warn("Struktur arsip YARA tidak sesuai.")
+        except Exception as exc:
+            warn(f"Gagal memperbarui basis data YARA: {exc}")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 def _pip_install_requirements() -> bool:
     req = os.path.join(ROOT, "requirements.txt")
     if not os.path.isfile(req):
@@ -784,6 +836,9 @@ def do_update(assume_yes: bool = False, interactive: bool = True) -> None:
 
     # Refresh dependencies.
     _pip_install_requirements()
+
+    # Update YARA rules
+    _update_yara_rules()
 
     # Restart the service so the new application code takes effect.
     if assume_yes:

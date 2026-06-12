@@ -42,3 +42,4 @@ docker==7.1.0
 
 # Security Module (FW#5)
 psutil==6.1.0
+yara-python>=4.5.4
