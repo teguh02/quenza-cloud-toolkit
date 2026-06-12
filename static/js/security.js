@@ -45,11 +45,12 @@
 
   function switchTab(tab) {
     state.currentTab = tab;
-    var tabs = ["system", "processes", "firewall"];
+    var tabs = ["system", "processes", "firewall", "antivirus"];
     var titles = {
       "system": "System Information",
       "processes": "Task Manager",
-      "firewall": "Firewall Rules"
+      "firewall": "Firewall Rules",
+      "antivirus": "Antivirus & Scanner"
     };
     
     $("tab-title").textContent = titles[tab];
@@ -184,6 +185,72 @@
           content.appendChild(btnHelp);
       }
     }
+    else if (state.currentTab === "antivirus") {
+      var conf = data.config;
+      var logs = data.logs;
+      
+      var html = '<div class="space-y-6">';
+      
+      // Control Panel
+      html += '<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">';
+      html += '<div class="rounded-xl border border-line bg-canvas/30 p-5">';
+      html += '<h3 class="text-sm font-bold text-heading mb-4">Pengaturan Antivirus</h3>';
+      
+      html += '<div class="space-y-4">';
+      html += '<label class="flex cursor-pointer items-center justify-between"><span class="text-sm font-semibold text-heading">Aktifkan Auto-Scan (Jadwal)</span><input type="checkbox" id="av-enabled" class="h-5 w-9 accent-brand-teal" ' + (conf.av_enabled ? 'checked' : '') + '></label>';
+      html += '<label class="flex cursor-pointer items-center justify-between"><span class="text-sm font-semibold text-heading">Karantina Otomatis</span><input type="checkbox" id="av-auto-quarantine" class="h-5 w-9 accent-brand-teal" ' + (conf.av_auto_quarantine ? 'checked' : '') + '></label>';
+      html += '</div>';
+      
+      html += '<div class="mt-5 pt-5 border-t border-line flex gap-3">';
+      html += '<button onclick="SecurityMgmt.saveAvConfig()" class="flex-1 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-bold text-white shadow-card hover:brightness-[1.03] transition-all">Simpan Pengaturan</button>';
+      html += '<button onclick="SecurityMgmt.triggerAvScan()" class="flex-1 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-bold text-secondary hover:text-brand-teal hover:border-brand-teal/30 transition-all">Scan Sekarang</button>';
+      html += '</div></div>';
+      
+      // Target paths
+      html += '<div class="rounded-xl border border-line bg-canvas/30 p-5">';
+      html += '<h3 class="text-sm font-bold text-heading mb-1">Target Direktori Scan</h3>';
+      html += '<p class="text-xs text-secondary mb-4">Daftar path file atau direktori yang akan dipindai.</p>';
+      html += '<textarea id="av-targets" class="w-full h-24 rounded-xl border border-line bg-surface p-3 text-xs font-mono focus:border-brand-teal focus:outline-none" placeholder="/path/to/folder\n/another/path">' + (conf.av_targets.join('\\n')) + '</textarea>';
+      html += '<p class="text-[11px] text-secondary mt-1">Masukkan satu path per baris.</p>';
+      html += '</div>';
+      html += '</div>'; // End grid
+      
+      // Quarantine Log Table
+      html += '<div class="rounded-xl border border-line bg-canvas/30 p-5">';
+      html += '<h3 class="text-sm font-bold text-heading mb-4">Brankas Karantina</h3>';
+      
+      if (logs.length === 0) {
+          html += '<p class="text-sm text-secondary p-4 text-center border border-dashed border-line rounded-xl">Belum ada file yang dikarantina.</p>';
+      } else {
+          var t = '<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="text-xs uppercase tracking-wider text-label border-b border-line"><tr><th class="pb-2">Waktu</th><th class="pb-2">File Asli</th><th class="pb-2">Rule Terdeteksi</th><th class="pb-2">Status</th><th class="pb-2 text-right">Aksi</th></tr></thead><tbody class="divide-y divide-line">';
+          logs.forEach(function(l) {
+              var badge = '';
+              if (l.status === 'quarantined') badge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-pastel-orange text-orange-600">Dikarantina</span>';
+              else if (l.status === 'restored') badge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-pastel-blue text-blue-600">Dipulihkan</span>';
+              else badge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-canvas text-secondary border border-line">Dihapus</span>';
+              
+              var d = new Date(l.created_at).toLocaleString();
+              
+              t += '<tr class="hover:bg-canvas transition-colors"><td class="py-2 text-secondary whitespace-nowrap">' + d + '</td>';
+              t += '<td class="py-2 font-mono text-xs max-w-xs truncate text-heading" title="' + escapeHtml(l.original_path) + '">' + escapeHtml(l.original_path) + '</td>';
+              t += '<td class="py-2 text-xs text-red-500 font-bold">' + escapeHtml(l.rule_matched) + '</td>';
+              t += '<td class="py-2">' + badge + '</td>';
+              t += '<td class="py-2 text-right space-x-2">';
+              if (l.status === 'quarantined') {
+                  t += '<button onclick="SecurityMgmt.avAction(' + l.id + ', \'restore\')" class="text-xs text-brand-teal hover:underline font-bold">Restore</button>';
+                  t += '<button onclick="SecurityMgmt.avAction(' + l.id + ', \'delete\')" class="text-xs text-red-500 hover:underline font-bold">Hapus</button>';
+              }
+              t += '</td></tr>';
+          });
+          t += '</tbody></table></div>';
+          html += t;
+      }
+      
+      html += '</div>';
+      
+      html += '</div>'; // End space-y-6
+      content.innerHTML = html;
+    }
   }
 
   function promptKill(pid, name) {
@@ -249,12 +316,55 @@
     });
   }
 
+  function saveAvConfig() {
+      var enabled = $("av-enabled").checked;
+      var autoq = $("av-auto-quarantine").checked;
+      var tgs = $("av-targets").value.split("\\n").map(function(s){return s.trim();}).filter(function(s){return s.length > 0;});
+      
+      apiPost("/api/security/antivirus/config", {
+          av_enabled: enabled,
+          av_auto_quarantine: autoq,
+          av_targets: tgs
+      }).then(function(res) {
+          if (res.ok) {
+              alert("Pengaturan tersimpan!");
+              refresh();
+          } else {
+              alert("Error: " + res.error);
+          }
+      }).catch(function(e) {
+          alert("Error: " + e);
+      });
+  }
+
+  function triggerAvScan() {
+      apiPost("/api/security/antivirus/scan", {}).then(function(res) {
+          if(res.ok) alert(res.message);
+          else alert("Error: " + res.error);
+      }).catch(function(e) {
+          alert("Error: " + e);
+      });
+  }
+
+  function avAction(id, action) {
+      if(!confirm("Yakin ingin " + (action === "restore" ? "memulihkan file ke lokasi asli?" : "menghapus file permanen?"))) return;
+      apiPost("/api/security/antivirus/quarantine/" + id, { action: action }).then(function(res) {
+          if(res.ok) refresh();
+          else alert("Error: " + res.error);
+      }).catch(function(e) {
+          alert("Error: " + e);
+      });
+  }
+
   window.SecurityMgmt = {
     init: init,
     switchTab: switchTab,
     refresh: refresh,
     promptKill: promptKill,
     showFirewallAdd: showFirewallAdd,
-    executeAction: executeAction
+    executeAction: executeAction,
+    saveAvConfig: saveAvConfig,
+    triggerAvScan: triggerAvScan,
+    avAction: avAction
   };
 })();

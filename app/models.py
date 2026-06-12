@@ -369,3 +369,25 @@ class AppSetting(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<AppSetting key={self.key!r}>"
+
+
+class QuarantineLog(Base):
+    """Log for files quarantined by the standalone Antivirus Scanner."""
+
+    __tablename__ = "quarantine_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    original_path: Mapped[str] = mapped_column(Text, nullable=False)
+    quarantined_path: Mapped[str] = mapped_column(Text, nullable=False)
+    rule_matched: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    # status: "quarantined", "restored", "deleted"
+    status: Mapped[str] = mapped_column(String(32), default="quarantined", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False, index=True
+    )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<QuarantineLog id={self.id} rule={self.rule_matched} status={self.status}>"

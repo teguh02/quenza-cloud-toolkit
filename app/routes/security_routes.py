@@ -3,9 +3,13 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
+import json
 
 from app.auth import require_api_auth, require_login, verify_password
-from app.services import security_service
+from app.services import security_service, scanner_service
+from app.database import get_db
+from sqlalchemy.orm import Session
+from app.models import AppSetting, QuarantineLog
 from app.templating import templates
 
 router = APIRouter()
@@ -51,6 +55,111 @@ async def api_get_firewall(_auth: None = Depends(require_api_auth)):
         adapter = security_service.get_firewall_adapter()
         data = adapter.get_rules()
         return {"ok": True, "data": data}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+@router.get("/api/security/antivirus")
+async def api_get_antivirus(db: Session = Depends(get_db), _auth: None = Depends(require_api_auth)):
+    try:
+        settings = db.query(AppSetting).filter(AppSetting.key.in_([
+            "av_enabled", "av_auto_quarantine", "av_targets"
+        ])).all()
+        config = {
+            "av_enabled": False,
+            "av_auto_quarantine": False,
+            "av_targets": []
+        }
+        for s in settings:
+            if s.key == "av_enabled": config["av_enabled"] = (s.value == "1")
+            elif s.key == "av_auto_quarantine": config["av_auto_quarantine"] = (s.value == "1")
+            elif s.key == "av_targets": config["av_targets"] = json.loads(s.value) if s.value else []
+            
+        logs_db = db.query(QuarantineLog).order_by(QuarantineLog.created_at.desc()).limit(50).all()
+        logs = []
+        for lg in logs_db:
+            logs.append({
+                "id": lg.id,
+                "original_path": lg.original_path,
+                "rule_matched": lg.rule_matched,
+                "status": lg.status,
+                "created_at": lg.created_at.isoformat() if lg.created_at else ""
+            })
+            
+        return {"ok": True, "data": {"config": config, "logs": logs}}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+class AntivirusConfigRequest(BaseModel):
+    av_enabled: bool
+    av_auto_quarantine: bool
+    av_targets: list[str]
+
+@router.post("/api/security/antivirus/config")
+async def api_set_antivirus_config(
+    req: AntivirusConfigRequest,
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_api_auth)
+):
+    try:
+        for k, v in [
+            ("av_enabled", "1" if req.av_enabled else "0"),
+            ("av_auto_quarantine", "1" if req.av_auto_quarantine else "0"),
+            ("av_targets", json.dumps(req.av_targets))
+        ]:
+            setting = db.query(AppSetting).filter_by(key=k).first()
+            if not setting:
+                setting = AppSetting(key=k, value=v)
+                db.add(setting)
+            else:
+                setting.value = v
+        db.commit()
+        
+        # Sync scheduler immediately
+        try:
+            from app import scheduler
+            scheduler.sync_av_scan()
+        except Exception as se:
+            pass # Ignored if scheduler is not running
+            
+        return {"ok": True, "message": "Konfigurasi Antivirus berhasil disimpan."}
+    except Exception as e:
+        db.rollback()
+        return {"ok": False, "error": str(e)}
+
+class QuarantineActionRequest(BaseModel):
+    action: str  # 'restore' or 'delete'
+
+@router.post("/api/security/antivirus/quarantine/{log_id}")
+async def api_quarantine_action(
+    log_id: int,
+    req: QuarantineActionRequest,
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_api_auth)
+):
+    try:
+        if req.action == "restore":
+            res = scanner_service.restore_quarantined_file(log_id, db=db)
+            msg = "File berhasil dipulihkan."
+        elif req.action == "delete":
+            res = scanner_service.delete_quarantined_file(log_id, db=db)
+            msg = "File berhasil dihapus permanen."
+        else:
+            return {"ok": False, "error": "Aksi tidak dikenali."}
+            
+        if res:
+            return {"ok": True, "message": msg}
+        else:
+            return {"ok": False, "error": "Gagal memproses file. Mungkin sudah terhapus atau dipulihkan."}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+@router.post("/api/security/antivirus/scan")
+async def api_manual_scan(_auth: None = Depends(require_api_auth)):
+    try:
+        # Trigger background standalone scan asynchronously
+        import threading
+        threading.Thread(target=scanner_service.run_standalone_scan).start()
+        return {"ok": True, "message": "Pemindaian manual telah dijalankan di latar belakang."}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

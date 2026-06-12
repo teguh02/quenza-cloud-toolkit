@@ -1,6 +1,13 @@
 import os
 import glob
 import logging
+import shutil
+import uuid
+import json
+from datetime import datetime, timezone
+
+from app.database import SessionLocal
+from app.models import QuarantineLog, AppSetting
 
 try:
     import yara
@@ -111,3 +118,140 @@ def scan_directory(dirpath: str) -> list[dict]:
                     "rules": triggered
                 })
     return findings
+
+
+def quarantine_file(filepath: str, rule_matched: str, db=None) -> QuarantineLog:
+    """Move a malicious file to quarantine and log it."""
+    quarantine_dir = os.path.join("app", "data", "quarantine")
+    os.makedirs(quarantine_dir, exist_ok=True)
+    
+    filename = os.path.basename(filepath)
+    safe_name = f"{uuid.uuid4().hex}_{filename}.quarantined"
+    safe_path = os.path.join(quarantine_dir, safe_name)
+    
+    try:
+        shutil.move(filepath, safe_path)
+    except Exception as e:
+        logger.error(f"Failed to move file {filepath} to quarantine: {e}")
+        raise
+    
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
+        
+    try:
+        log = QuarantineLog(
+            original_path=filepath,
+            quarantined_path=safe_path,
+            rule_matched=rule_matched,
+            status="quarantined"
+        )
+        db.add(log)
+        db.commit()
+        db.refresh(log)
+        return log
+    finally:
+        if close_db:
+            db.close()
+
+
+def restore_quarantined_file(log_id: int, db=None) -> bool:
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
+        
+    try:
+        log = db.get(QuarantineLog, log_id)
+        if not log or log.status != "quarantined":
+            return False
+            
+        # Ensure original directory exists
+        orig_dir = os.path.dirname(log.original_path)
+        if orig_dir:
+            os.makedirs(orig_dir, exist_ok=True)
+            
+        shutil.move(log.quarantined_path, log.original_path)
+        log.status = "restored"
+        log.resolved_at = datetime.now(timezone.utc)
+        db.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to restore file: {e}")
+        db.rollback()
+        return False
+    finally:
+        if close_db:
+            db.close()
+
+
+def delete_quarantined_file(log_id: int, db=None) -> bool:
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
+        
+    try:
+        log = db.get(QuarantineLog, log_id)
+        if not log or log.status != "quarantined":
+            return False
+            
+        if os.path.exists(log.quarantined_path):
+            os.remove(log.quarantined_path)
+            
+        log.status = "deleted"
+        log.resolved_at = datetime.now(timezone.utc)
+        db.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to delete quarantined file: {e}")
+        db.rollback()
+        return False
+    finally:
+        if close_db:
+            db.close()
+
+
+def run_standalone_scan():
+    """Run a standalone scan based on global Security settings."""
+    db = SessionLocal()
+    try:
+        # Load settings
+        targets_setting = db.query(AppSetting).filter_by(key="av_targets").first()
+        auto_quarantine_setting = db.query(AppSetting).filter_by(key="av_auto_quarantine").first()
+        
+        targets = json.loads(targets_setting.value) if targets_setting and targets_setting.value else []
+        auto_quarantine = (auto_quarantine_setting and auto_quarantine_setting.value == "1")
+        
+        if not targets:
+            logger.info("No targets configured for standalone scan. Skipping.")
+            return
+
+        findings = []
+        for target in targets:
+            if not os.path.exists(target):
+                continue
+            if os.path.isdir(target):
+                res = scan_directory(target)
+                findings.extend(res)
+            else:
+                triggered = scan_file(target)
+                if triggered:
+                    findings.append({"file": target, "rules": triggered})
+        
+        if auto_quarantine and findings:
+            logger.info(f"Auto-quarantining {len(findings)} detected files.")
+            for f in findings:
+                filepath = f["file"]
+                rule_matched = ", ".join(f["rules"])
+                try:
+                    if os.path.exists(filepath):
+                        quarantine_file(filepath, rule_matched, db=db)
+                except Exception as e:
+                    logger.error(f"Failed to auto-quarantine {filepath}: {e}")
+        elif findings:
+            logger.warning(f"Standalone scan found {len(findings)} malware, but auto-quarantine is OFF.")
+            
+    finally:
+        db.close()

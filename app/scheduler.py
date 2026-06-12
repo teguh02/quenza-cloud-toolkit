@@ -19,7 +19,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.database import SessionLocal
-from app.models import Schedule
+from app.models import Schedule, AppSetting
 
 logger = logging.getLogger("quenza.scheduler")
 
@@ -123,6 +123,7 @@ def reload_jobs() -> int:
         db.close()
 
     logger.info("Loaded %s scheduled job(s).", count)
+    sync_av_scan()
     return count
 
 
@@ -181,3 +182,36 @@ def _register(sched: Schedule) -> None:
 def is_running() -> bool:
     """Return True if the scheduler is active."""
     return _scheduler is not None and _scheduler.running
+
+
+def sync_av_scan() -> None:
+    """Sync the standalone antivirus scan job based on global settings."""
+    if _scheduler is None:
+        return
+
+    job_id = "standalone-av-scan"
+    existing = _scheduler.get_job(job_id)
+    if existing:
+        existing.remove()
+
+    db = SessionLocal()
+    try:
+        setting = db.query(AppSetting).filter_by(key="av_enabled").first()
+        if setting and setting.value == "1":
+            from app.services import scanner_service
+            tz = _scheduler_timezone()
+            # Default to running daily at 03:00 local time
+            trigger = CronTrigger(hour=3, minute=0, timezone=tz)
+            _scheduler.add_job(
+                scanner_service.run_standalone_scan,
+                trigger=trigger,
+                id=job_id,
+                replace_existing=True,
+                misfire_grace_time=3600,
+                coalesce=True,
+            )
+            logger.info("Standalone Antivirus scanner registered for 03:00 daily.")
+    except Exception as exc:
+        logger.exception("Failed to sync AV scan schedule.")
+    finally:
+        db.close()
