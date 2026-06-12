@@ -27,6 +27,7 @@ from app.routes import (
     history_routes,
     page_routes,
     project_routes,
+    security_routes,
     settings_routes,
 )
 
@@ -120,6 +121,7 @@ app.include_router(project_routes.router)
 app.include_router(destination_routes.router)
 app.include_router(docker_routes.router)
 app.include_router(history_routes.router)
+app.include_router(security_routes.router)
 app.include_router(settings_routes.router)
 app.include_router(filemanager_routes.router)
 app.include_router(page_routes.router)

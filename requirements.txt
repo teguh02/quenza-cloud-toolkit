@@ -39,3 +39,6 @@ httpx==0.28.1
 
 # Docker Management (FW#1 & FW#2)
 docker==7.1.0
+
+# Security Module (FW#5)
+psutil==6.1.0
