@@ -35,19 +35,30 @@
             <h2 class="text-base font-bold text-heading">Sumber Backup</h2>
             <p class="mt-0.5 text-xs text-secondary">Direktori, file, dan database yang disertakan.</p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="relative group">
             <button type="button"
-              onclick="QuenzaModal.open('modal-file-manager')"
-              class="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-3.5 py-2 text-xs font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03]">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-              File Manager
+              class="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-bold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03]">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Tambah
             </button>
-            <button type="button"
-              onclick="QuenzaModal.open('modal-add-db')"
-              class="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-secondary transition-all duration-quenza ease-quenza hover:border-brand-teal/30 hover:text-heading">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/></svg>
-              Database
-            </button>
+            <div class="absolute right-0 top-full mt-2 hidden w-48 flex-col rounded-xl border border-line bg-surface p-1.5 shadow-xl group-hover:flex z-10">
+              <button type="button" onclick="QuenzaModal.open('modal-file-manager')" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold text-heading transition-colors hover:bg-canvas">
+                <svg class="h-4 w-4 text-brand-teal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                File Manager
+              </button>
+              <button type="button" onclick="QuenzaModal.open('modal-add-db')" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold text-heading transition-colors hover:bg-canvas">
+                <svg class="h-4 w-4 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/></svg>
+                Database
+              </button>
+              <button type="button" onclick="QuenzaModal.open('modal-add-docker-container')" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold text-heading transition-colors hover:bg-canvas">
+                <svg class="h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                Docker Container
+              </button>
+              <button type="button" onclick="QuenzaModal.open('modal-add-docker-volume')" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold text-heading transition-colors hover:bg-canvas">
+                <svg class="h-4 w-4 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="12" x2="2" y2="12"></line><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path><line x1="6" y1="16" x2="6.01" y2="16"></line><line x1="10" y1="16" x2="10.01" y2="16"></line></svg>
+                Docker Volume
+              </button>
+            </div>
           </div>
         </div>
 
@@ -310,6 +321,8 @@
 {# ============== MODALS ============== #}
 {% include "projects/_file_manager_modal.html" %}
 {% include "projects/_add_db_modal.html" %}
+{% include "projects/_add_docker_container_modal.html" %}
+{% include "projects/_add_docker_volume_modal.html" %}
 {% endblock %}
 
 {% block scripts %}

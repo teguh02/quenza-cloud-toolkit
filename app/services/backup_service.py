@@ -28,7 +28,7 @@ from app.models import (
     Schedule,
     SourceType,
 )
-from app.services import archive_service, db_dump_service
+from app.services import archive_service, db_dump_service, docker_dump_service
 from app.services.destinations import get_adapter
 
 logger = logging.getLogger("quenza.backup")
@@ -150,6 +150,30 @@ def run_backup(
                     items.append(archive_service.ArchiveItem(path=res.output_path))
                 else:
                     source_warnings.append(f"PostgreSQL {src.db_name}: {res.error}")
+            elif src.source_type == SourceType.DOCKER_CONTAINER:
+                emit(2, f"Membuat dump Docker Container: {src.db_name}", src_pct)
+                try:
+                    host_id = int(src.db_host)
+                except ValueError:
+                    source_warnings.append(f"Docker Container {src.db_name}: Host ID tidak valid ({src.db_host})")
+                    continue
+                res = docker_dump_service.dump_container(db, host_id, src.db_name, str(dump_dir))
+                if res.ok:
+                    items.append(archive_service.ArchiveItem(path=res.output_path))
+                else:
+                    source_warnings.append(f"Docker Container {src.db_name}: {res.error}")
+            elif src.source_type == SourceType.DOCKER_VOLUME:
+                emit(2, f"Membuat dump Docker Volume: {src.db_name}", src_pct)
+                try:
+                    host_id = int(src.db_host)
+                except ValueError:
+                    source_warnings.append(f"Docker Volume {src.db_name}: Host ID tidak valid ({src.db_host})")
+                    continue
+                res = docker_dump_service.dump_volume(db, host_id, src.db_name, str(dump_dir))
+                if res.ok:
+                    items.append(archive_service.ArchiveItem(path=res.output_path))
+                else:
+                    source_warnings.append(f"Docker Volume {src.db_name}: {res.error}")
 
         if not items:
             detail = {"warnings": source_warnings}

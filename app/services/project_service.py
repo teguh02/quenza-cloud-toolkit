@@ -168,9 +168,9 @@ def add_source(
         )
     else:  # MYSQL / POSTGRES
         if not (db_name or "").strip():
-            raise ValueError("Nama database wajib diisi.")
+            raise ValueError("Nama/Identifier wajib diisi.")
         if not (db_host or "").strip():
-            raise ValueError("Host database wajib diisi.")
+            raise ValueError("Host wajib diisi.")
         source = BackupSource(
             project_id=project_id,
             source_type=stype,
@@ -226,7 +226,7 @@ def _parse_source_type(value: str) -> SourceType:
         return SourceType(value)
     except ValueError:
         raise ValueError(
-            "Tipe sumber tidak valid (directory/file/mysql/postgres)."
+            "Tipe sumber tidak valid (directory/file/mysql/postgres/docker_container/docker_volume)."
         ) from None
 
 
@@ -237,11 +237,16 @@ def source_type_meta(source: BackupSource) -> dict[str, str]:
         SourceType.FILE: ("list", "pastel-green", "text-brand-teal"),
         SourceType.MYSQL: ("cloud", "pastel-orange", "text-amber-500"),
         SourceType.POSTGRES: ("cloud", "pastel-purple", "text-purple-500"),
+        SourceType.DOCKER_CONTAINER: ("box", "pastel-blue", "text-blue-600"),
+        SourceType.DOCKER_VOLUME: ("hard-drive", "pastel-green", "text-green-600"),
     }
     icon, tone, fg = mapping[source.source_type]
 
     if source.source_type in (SourceType.DIRECTORY, SourceType.FILE):
         summary = source.path
+    elif source.source_type in (SourceType.DOCKER_CONTAINER, SourceType.DOCKER_VOLUME):
+        # We store DockerHost ID in db_host, and the actual container/volume name in db_name
+        summary = f"Host #{source.db_host} : {source.db_name}"
     else:
         port = f":{source.db_port}" if source.db_port else ""
         summary = f"{source.db_user}@{source.db_host}{port}/{source.db_name}"

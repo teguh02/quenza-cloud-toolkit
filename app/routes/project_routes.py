@@ -116,6 +116,10 @@ async def project_detail(
     selected_ids = {d.id for d in project.destinations}
     schedule = project.schedule
 
+    # Fetch Docker hosts for source addition
+    from app.services import docker_service
+    docker_hosts = docker_service.get_hosts(db)
+
     # Total size of backup sources (cached; recomputed in background if stale).
     size_entry = source_size_service.ensure_fresh(db, project_id)
 
@@ -130,6 +134,7 @@ async def project_detail(
             "sources": sources,
             "size_entry": size_entry,
             "all_destinations": all_destinations,
+            "docker_hosts": docker_hosts,
             "selected_dest_ids": selected_ids,
             "schedule": schedule,
             "schedule_desc": schedule_service.describe(schedule),

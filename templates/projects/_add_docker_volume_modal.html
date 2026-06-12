@@ -1,0 +1,48 @@
+<div
+  id="modal-add-docker-volume"
+  class="quenza-modal fixed inset-0 z-50 hidden items-center justify-center px-4"
+  aria-hidden="true"
+>
+  <div class="quenza-modal-backdrop absolute inset-0 bg-heading/30 backdrop-blur-sm" onclick="QuenzaModal.close('modal-add-docker-volume')"></div>
+
+  <div class="quenza-modal-panel relative w-full max-w-lg rounded-3xl border border-line bg-surface p-7 shadow-card-hover">
+    <div class="mb-5 flex items-center justify-between">
+      <h3 class="text-lg font-bold text-heading">Tambah Docker Volume</h3>
+      <button type="button" onclick="QuenzaModal.close('modal-add-docker-volume')" class="text-label transition-colors duration-quenza ease-quenza hover:text-secondary" aria-label="Tutup">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <form method="post" action="/projects/{{ project.id }}/sources/add" class="space-y-4">
+      <input type="hidden" name="source_type" value="docker_volume">
+
+      <div>
+        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Docker Host</label>
+        <select name="db_host" required class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25">
+          <option value="" disabled selected>Pilih Docker Host...</option>
+          {% for host in docker_hosts %}
+          <option value="{{ host.id }}">{{ host.name }} ({{ host.connection_type }})</option>
+          {% endfor %}
+        </select>
+        <p class="mt-1 text-[11px] text-secondary">
+          Atur host di halaman <a href="/docker" class="text-brand-teal hover:underline">Docker Management</a>.
+        </p>
+      </div>
+
+      <div>
+        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Nama Volume</label>
+        <input name="db_name" type="text" required placeholder="mis. wp_data_volume"
+          class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+      </div>
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button type="button" onclick="QuenzaModal.close('modal-add-docker-volume')"
+          class="rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-all duration-quenza ease-quenza hover:text-heading">Batal</button>
+        <button type="submit"
+          class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
+          Tambah Volume
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

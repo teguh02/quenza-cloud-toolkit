@@ -10,11 +10,16 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 ### Ditambahkan
 - **Fitur File Manager Standalone (FW#4)**: Menu mandiri untuk menjelajah, menambah, menghapus, dan mengubah *file*/*folder*. Aksi penghapusan dilindungi oleh *Math CAPTCHA* (penjumlahan angka acak) untuk mencegah *human-error*.
 - **Manajemen Docker (FW#1)**: Tab khusus (Docker Mgmt) untuk mendeteksi *host* Docker secara otomatis serta melihat daftar *container* dan *volume* aktif di sistem.
-- **Security Module - Tahap 1 (FW#5)**: Tab khusus (Security) terintegrasi untuk:
+- **Security Module - Tahap Akhir (FW#5)**: Tab khusus (Security) terintegrasi untuk:
   - Memantau metrik peladen secara *real-time* (*System Info*).
   - Mengelola *process* berjalan dengan fitur interaktif *Kill Task* (*Task Manager*).
   - Melakukan manajemen *rule* Firewall (*Adapter Pattern* untuk Linux `ufw` dan Windows `netsh`).
+  - **Antivirus & Malware Scanner**: Integrasi mesin **ClamAV** dan **YARA** secara bersamaan. Laporan pemindaian tampil secara *real-time* dengan rincian pendeteksi di halaman History/Logs. Termasuk fitur penjadwalan otomatis.
+  - Pemasangan **Otomatis**: Skrip `install.sh` dan menu *update* di `toolkit.py` sekarang secara otomatis memverifikasi dan memasang ClamAV di tingkat OS (*unattended*).
   - *Catatan Keamanan*: Fitur *Kill Task* dan modifikasi Firewall dilindungi ketat menggunakan *prompt Master Password* demi mitigasi tindakan keliru atau ancaman keamanan internal.
+
+### Diperbaiki
+- **Pemindaian Ganda**: Proses pemindaian tidak lagi langsung membatalkan seluruh operasi jika salah satu mesin pemindai (*database* YARA) belum diunduh, melainkan melanjutkan pemindaian dengan mesin yang masih tersedia (ClamAV).
 
 ---
 
