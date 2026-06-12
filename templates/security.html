@@ -131,7 +131,7 @@
 
 {% block scripts %}
 <script src="/static/js/modal.js"></script>
-<script src="/static/js/filemanager.js"></script>
+<script src="/static/js/filemanager.js?v=2"></script>
 <script src="/static/js/security.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
@@ -141,7 +141,7 @@
         onSubmitCallback: function(paths) {
           var ta = document.getElementById("av-targets");
           if (ta) {
-            var current = ta.value.split("\\n").map(function(s){return s.trim()}).filter(function(s){return s.length > 0;});
+            var current = ta.value.split("\n").map(function(s){return s.trim()}).filter(function(s){return s.length > 0;});
             paths.forEach(function(p) {
               if (current.indexOf(p) === -1) {
                 current.push(p);
