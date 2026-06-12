@@ -134,20 +134,39 @@
     } 
     else if (state.currentTab === "processes") {
       var table = '<div class="w-full overflow-x-auto rounded-xl border border-line"><table class="w-full text-left text-sm"><thead class="text-xs uppercase tracking-wider text-label border-b border-line bg-canvas/80"><tr><th class="px-4 py-3">PID</th><th class="px-4 py-3">Name</th><th class="px-4 py-3">User</th><th class="px-4 py-3">CPU %</th><th class="px-4 py-3">RAM %</th><th class="px-4 py-3 text-right">Aksi</th></tr></thead><tbody class="divide-y divide-line">';
+      var iconKill = '<svg class="w-4 h-4 block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
       data.forEach(function(p) {
         table += '<tr class="hover:bg-canvas/30 transition-colors"><td class="px-4 py-3 font-mono text-secondary">' + p.pid + '</td><td class="px-4 py-3 font-bold text-heading">' + escapeHtml(p.name) + '</td><td class="px-4 py-3 text-secondary">' + escapeHtml(p.user) + '</td><td class="px-4 py-3">' + p.cpu + '%</td><td class="px-4 py-3">' + p.ram + '%</td>';
-        table += '<td class="px-4 py-3 text-right"><button onclick="SecurityMgmt.promptKill(' + p.pid + ', \'' + escapeHtml(p.name).replace(/'/g, "\\'") + '\')" class="rounded-lg bg-red-50 px-3 py-1.5 text-[11px] uppercase tracking-wider font-bold text-red-600 hover:bg-red-100 transition-colors">Kill</button></td></tr>';
+        table += '<td class="px-4 py-3 text-right"><button title="Kill Process" onclick="SecurityMgmt.promptKill(' + p.pid + ', \'' + escapeHtml(p.name).replace(/'/g, "\\'") + '\')" class="inline-flex items-center justify-center p-2 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors focus:outline-none">' + iconKill + '</button></td></tr>';
       });
       table += '</tbody></table></div>';
       content.innerHTML = table;
     }
     else if (state.currentTab === "firewall") {
+      var btnAdd = $("btn-add-rule");
+      if (data.length === 1 && data[0].raw && data[0].raw.toLowerCase().indexOf("status: inactive") !== -1) {
+          if (btnAdd) btnAdd.classList.add("hidden");
+          var msg = '<div class="flex flex-col items-center justify-center text-center p-8 bg-canvas/30 rounded-2xl border border-line h-64">';
+          msg += '<svg class="w-12 h-12 text-secondary mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>';
+          msg += '<p class="text-sm font-bold text-heading mb-2">Firewall Tidak Aktif</p>';
+          msg += '<p class="text-xs text-secondary max-w-md">Untuk menggunakan fitur Firewall Manager, Anda harus mengaktifkannya di server Anda terlebih dahulu. Jalankan perintah <code class="bg-surface px-1 py-0.5 rounded font-mono border border-line">sudo ufw enable</code> di terminal.</p>';
+          msg += '</div>';
+          content.innerHTML = msg;
+          return;
+      }
+      
+      if (btnAdd) btnAdd.classList.remove("hidden");
+
       if (data.length === 0) {
          content.innerHTML = '<div class="flex h-full items-center justify-center text-sm text-label p-4">Tidak ada aturan firewall terbaca.</div>';
          return;
       }
       var list = el("div", "space-y-2");
+      var hasUfwError = false;
       data.forEach(function(rule) {
+         if (rule.raw && rule.raw.indexOf("Gagal membaca UFW") !== -1) {
+             hasUfwError = true;
+         }
          var row = el("div", "rounded-xl border border-line bg-canvas/30 p-4 hover:bg-canvas transition-colors");
          row.innerHTML = '<p class="font-mono text-xs text-heading break-words whitespace-pre-wrap">' + escapeHtml(rule.raw) + '</p>';
          list.appendChild(row);
@@ -158,6 +177,12 @@
       
       content.appendChild(note);
       content.appendChild(list);
+
+      if (hasUfwError) {
+          var btnHelp = el("div", "mt-6 text-center");
+          btnHelp.innerHTML = '<a href="/help#ufw-permissions" class="inline-flex items-center gap-2 rounded-xl bg-brand-teal px-5 py-2.5 text-sm font-bold text-white shadow-card hover:bg-brand-teal/90 transition-all"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> Solusi: Error Permission UFW</a>';
+          content.appendChild(btnHelp);
+      }
     }
   }
 

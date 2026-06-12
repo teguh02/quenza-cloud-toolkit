@@ -82,3 +82,18 @@ async def api_container_action(
     _auth: None = Depends(require_api_auth)
 ):
     return docker_service.container_action(db, host_id, container_id, req.action)
+
+class ResourceActionRequest(BaseModel):
+    resource_id: str
+
+@router.post("/api/docker/{host_id}/{resource_type}/remove")
+async def api_remove_resource(
+    host_id: int,
+    resource_type: str,
+    req: ResourceActionRequest,
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_api_auth)
+):
+    # Remove trailing 's' to match service layer expected 'image', 'volume', 'network'
+    rtype = resource_type[:-1] if resource_type.endswith('s') else resource_type
+    return docker_service.remove_resource(db, host_id, rtype, req.resource_id)

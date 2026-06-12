@@ -7,7 +7,14 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 
 ## [Belum Dirilis]
 
-Belum ada perubahan yang menunggu rilis.
+### Ditambahkan
+- **Fitur File Manager Standalone (FW#4)**: Menu mandiri untuk menjelajah, menambah, menghapus, dan mengubah *file*/*folder*. Aksi penghapusan dilindungi oleh *Math CAPTCHA* (penjumlahan angka acak) untuk mencegah *human-error*.
+- **Manajemen Docker (FW#1)**: Tab khusus (Docker Mgmt) untuk mendeteksi *host* Docker secara otomatis serta melihat daftar *container* dan *volume* aktif di sistem.
+- **Security Module - Tahap 1 (FW#5)**: Tab khusus (Security) terintegrasi untuk:
+  - Memantau metrik peladen secara *real-time* (*System Info*).
+  - Mengelola *process* berjalan dengan fitur interaktif *Kill Task* (*Task Manager*).
+  - Melakukan manajemen *rule* Firewall (*Adapter Pattern* untuk Linux `ufw` dan Windows `netsh`).
+  - *Catatan Keamanan*: Fitur *Kill Task* dan modifikasi Firewall dilindungi ketat menggunakan *prompt Master Password* demi mitigasi tindakan keliru atau ancaman keamanan internal.
 
 ---
 

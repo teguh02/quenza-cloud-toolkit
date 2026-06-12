@@ -201,6 +201,29 @@
         <li class="flex gap-2"><span class="text-brand-teal">•</span> Set <span class="font-mono">DEBUG=false</span> di produksi agar cookie session hanya dikirim via HTTPS.</li>
         <li class="flex gap-2"><span class="text-brand-teal">•</span> Restore dilindungi dari path-traversal.</li>
       </ul>
+
+      <div id="ufw-permissions" class="mt-8 rounded-2xl border border-red-100 bg-red-50/30 p-5">
+        <h3 class="flex items-center gap-2 text-sm font-bold text-red-800 mb-2">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          Solusi: Gagal membaca UFW (Sudo Permission)
+        </h3>
+        <p class="text-xs text-secondary leading-relaxed mb-3">
+          Jika Anda menjalankan aplikasi ini sebagai pengguna non-root (misal: <code class="font-mono bg-canvas px-1 rounded">gomit</code>), fitur Firewall Manager tidak dapat membaca atau memodifikasi pengaturan <code class="font-mono bg-canvas px-1 rounded">ufw</code> tanpa hak akses <code class="font-mono bg-canvas px-1 rounded">sudo</code>. Sebagai praktik keamanan yang tepat, Anda dapat memberikan izin khusus untuk perintah tertentu saja tanpa perlu memasukkan password.
+        </p>
+        <p class="text-xs font-bold text-heading mb-2">Langkah perbaikan (jalankan di terminal server via SSH):</p>
+        <ol class="list-decimal list-inside text-xs text-secondary space-y-2">
+          <li>Buka editor sudoers khusus aplikasi: <br><code class="block mt-1 bg-gray-900 text-green-400 p-2 rounded-lg font-mono">sudo visudo -f /etc/sudoers.d/quenza-ufw</code></li>
+          <li>Masukkan aturan berikut (ubah <code class="font-mono text-white">gomit</code> dengan nama user tempat aplikasi berjalan):<br>
+<pre class="block mt-1 bg-gray-900 text-gray-200 p-3 rounded-lg font-mono overflow-x-auto">
+gomit ALL=(ALL) NOPASSWD: /usr/sbin/ufw status numbered
+gomit ALL=(ALL) NOPASSWD: /usr/sbin/ufw allow *
+gomit ALL=(ALL) NOPASSWD: /usr/sbin/ufw deny *
+gomit ALL=(ALL) NOPASSWD: /usr/sbin/ufw delete *
+</pre>
+          </li>
+          <li>Simpan file tersebut. Modul Firewall kini dapat langsung digunakan tanpa error.</li>
+        </ol>
+      </div>
     </section>
 
     {# FAQ #}

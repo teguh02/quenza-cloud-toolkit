@@ -168,3 +168,28 @@ def container_action(db: Session, host_id: int, container_id: str, action: str) 
         return {"ok": True, "message": f"Container {c.name} {action}ed successfully."}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+def remove_resource(db: Session, host_id: int, resource_type: str, resource_id: str) -> dict[str, Any]:
+    """Execute remove on image, volume, or network."""
+    host = db.query(DockerHost).filter(DockerHost.id == host_id).first()
+    if not host:
+        return {"ok": False, "error": "Host not found"}
+    try:
+        client = _get_client(host)
+        if resource_type == "image":
+            client.images.remove(resource_id, force=True)
+            msg = "Image"
+        elif resource_type == "volume":
+            v = client.volumes.get(resource_id)
+            v.remove(force=True)
+            msg = "Volume"
+        elif resource_type == "network":
+            n = client.networks.get(resource_id)
+            n.remove()
+            msg = "Network"
+        else:
+            return {"ok": False, "error": f"Unknown resource type: {resource_type}"}
+        
+        return {"ok": True, "message": f"{msg} deleted successfully."}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}

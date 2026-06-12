@@ -101,6 +101,8 @@
     var content = $("tab-content");
     content.innerHTML = "";
 
+    var iconRemove = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
+
     if (state.currentTab === "containers") {
       var arr = data.containers || [];
       if (arr.length === 0) {
@@ -120,14 +122,18 @@
         statusBadge.textContent = c.status;
         right.appendChild(statusBadge);
 
+        var iconStop = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>';
+        var iconRestart = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>';
+        var iconStart = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+
         var actions = el("div", "flex gap-1");
         if (c.status === "running") {
-          actions.appendChild(makeBtn("Stop", "stop", c.id, "text-orange-600 hover:bg-orange-50"));
-          actions.appendChild(makeBtn("Restart", "restart", c.id, "text-blue-600 hover:bg-blue-50"));
+          actions.appendChild(makeBtn("Stop", "stop", c.id, "text-orange-600 hover:bg-orange-50", iconStop));
+          actions.appendChild(makeBtn("Restart", "restart", c.id, "text-blue-600 hover:bg-blue-50", iconRestart));
         } else {
-          actions.appendChild(makeBtn("Start", "start", c.id, "text-green-600 hover:bg-green-50"));
+          actions.appendChild(makeBtn("Start", "start", c.id, "text-green-600 hover:bg-green-50", iconStart));
         }
-        actions.appendChild(makeBtn("Remove", "remove", c.id, "text-red-600 hover:bg-red-50"));
+        actions.appendChild(makeBtn("Remove", "remove", c.id, "text-red-600 hover:bg-red-50", iconRemove));
         right.appendChild(actions);
 
         row.appendChild(left);
@@ -143,9 +149,12 @@
        }
        var list = el("div", "grid grid-cols-1 md:grid-cols-2 gap-3");
        arr.forEach(function(i) {
-         var row = el("div", "flex items-center justify-between rounded-xl border border-line bg-canvas/30 p-4");
+         var row = el("div", "flex items-center justify-between rounded-xl border border-line bg-canvas/30 p-4 transition-colors hover:bg-canvas");
          row.innerHTML = '<div class="min-w-0"><p class="font-bold text-heading truncate">' + escapeHtml((i.tags && i.tags.length > 0) ? i.tags[0] : i.short_id) + '</p>' +
                          '<p class="text-[11px] text-secondary mt-1">Size: ' + (i.size / 1024 / 1024).toFixed(2) + ' MB | ID: ' + escapeHtml(i.short_id) + '</p></div>';
+         var right = el("div", "shrink-0 ml-4");
+         right.appendChild(makeBtn("Remove", "remove", i.id, "text-red-600 hover:bg-red-50 hover:text-red-700", iconRemove));
+         row.appendChild(right);
          list.appendChild(row);
        });
        content.appendChild(list);
@@ -157,9 +166,12 @@
        }
        var list = el("div", "grid grid-cols-1 md:grid-cols-2 gap-3");
        arr.forEach(function(v) {
-         var row = el("div", "flex flex-col justify-center rounded-xl border border-line bg-canvas/30 p-4");
+         var row = el("div", "flex items-center justify-between rounded-xl border border-line bg-canvas/30 p-4 transition-colors hover:bg-canvas");
          row.innerHTML = '<div class="min-w-0"><p class="font-bold text-heading truncate" title="' + escapeHtml(v.name) + '">' + escapeHtml(v.name) + '</p>' +
                          '<p class="text-[11px] text-secondary mt-1 truncate">Driver: ' + escapeHtml(v.driver) + '</p></div>';
+         var right = el("div", "shrink-0 ml-4");
+         right.appendChild(makeBtn("Remove", "remove", v.name, "text-red-600 hover:bg-red-50 hover:text-red-700", iconRemove));
+         row.appendChild(right);
          list.appendChild(row);
        });
        content.appendChild(list);
@@ -171,18 +183,22 @@
        }
        var list = el("div", "grid grid-cols-1 md:grid-cols-2 gap-3");
        arr.forEach(function(n) {
-         var row = el("div", "flex items-center justify-between rounded-xl border border-line bg-canvas/30 p-4");
+         var row = el("div", "flex items-center justify-between rounded-xl border border-line bg-canvas/30 p-4 transition-colors hover:bg-canvas");
          row.innerHTML = '<div class="min-w-0"><p class="font-bold text-heading truncate">' + escapeHtml(n.name) + '</p>' +
                          '<p class="text-[11px] text-secondary mt-1">Driver: ' + escapeHtml(n.driver) + ' | Scope: ' + escapeHtml(n.scope) + '</p></div>';
+         var right = el("div", "shrink-0 ml-4");
+         right.appendChild(makeBtn("Remove", "remove", n.id, "text-red-600 hover:bg-red-50 hover:text-red-700", iconRemove));
+         row.appendChild(right);
          list.appendChild(row);
        });
        content.appendChild(list);
     }
   }
 
-  function makeBtn(label, action, id, colorCls) {
-    var b = el("button", "rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors border border-transparent hover:border-line " + colorCls);
-    b.textContent = label;
+  function makeBtn(label, action, id, colorCls, iconSvg) {
+    var b = el("button", "flex items-center justify-center rounded-lg p-2 transition-colors border border-transparent hover:border-line focus:outline-none " + colorCls);
+    b.title = label;
+    b.innerHTML = '<span class="h-4 w-4 block">' + iconSvg + '</span>';
     b.onclick = function() {
       promptAction(id, action);
     };
@@ -192,8 +208,10 @@
   function promptAction(id, action) {
     state.actionTarget = id;
     state.actionType = action;
+    var typeText = state.currentTab === "containers" ? "kontainer" : state.currentTab.slice(0, -1);
+    
     $("action-modal-title").textContent = "Konfirmasi " + action.toUpperCase();
-    $("action-modal-desc").textContent = "Anda yakin ingin melakukan aksi '" + action + "' pada kontainer ini?";
+    $("action-modal-desc").textContent = "Anda yakin ingin melakukan aksi '" + action + "' pada " + typeText + " ini?";
     
     var btn = $("action-confirm-btn");
     var icon = $("action-modal-icon");
@@ -219,8 +237,17 @@
     btn.disabled = true;
     btn.textContent = "Loading...";
 
-    var url = "/api/docker/" + state.hostId + "/containers/" + state.actionTarget + "/action";
-    apiPost(url, { action: state.actionType }).then(function(res) {
+    var url;
+    var payload;
+    if (state.currentTab === "containers") {
+       url = "/api/docker/" + state.hostId + "/containers/" + state.actionTarget + "/action";
+       payload = { action: state.actionType };
+    } else {
+       url = "/api/docker/" + state.hostId + "/" + state.currentTab + "/remove";
+       payload = { resource_id: state.actionTarget };
+    }
+
+    apiPost(url, payload).then(function(res) {
       if (res.ok) {
         QuenzaModal.close('modal-docker-action');
         refresh();
