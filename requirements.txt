@@ -36,3 +36,6 @@ cryptography==44.0.0
 
 # Dev/testing (TestClient)
 httpx==0.28.1
+
+# Docker Management (FW#1 & FW#2)
+docker==7.1.0

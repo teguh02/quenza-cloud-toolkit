@@ -22,6 +22,7 @@ from app.database import init_db
 from app.routes import (
     auth_routes,
     destination_routes,
+    docker_routes,
     filemanager_routes,
     history_routes,
     page_routes,
@@ -117,6 +118,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.include_router(auth_routes.router)
 app.include_router(project_routes.router)
 app.include_router(destination_routes.router)
+app.include_router(docker_routes.router)
 app.include_router(history_routes.router)
 app.include_router(settings_routes.router)
 app.include_router(filemanager_routes.router)

@@ -62,6 +62,8 @@ class SourceType(str, enum.Enum):
     FILE = "file"
     MYSQL = "mysql"
     POSTGRES = "postgres"
+    DOCKER_CONTAINER = "docker_container"
+    DOCKER_VOLUME = "docker_volume"
 
 
 class ArchiveFormat(str, enum.Enum):
@@ -310,6 +312,25 @@ class BackupJob(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<BackupJob id={self.id} status={self.status} progress={self.progress}>"
+
+
+class DockerHost(Base):
+    """A registered Docker daemon/host (local or remote)."""
+
+    __tablename__ = "docker_hosts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False, unique=True, index=True)
+    connection_type: Mapped[str] = mapped_column(String(16), default="local", nullable=False)
+    base_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    tls_config_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<DockerHost id={self.id} name={self.name!r} type={self.connection_type}>"
 
 
 class AppMeta(Base):
