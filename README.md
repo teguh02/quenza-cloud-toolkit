@@ -388,3 +388,28 @@ Lihat detail di [`docs/INSTALL.md`](docs/INSTALL.md).
 - [x] **Fase 3** — Manajemen Project & Destinasi
 - [x] **Fase 4** — Backup & Restore Engine
 - [x] **Fase 5** — Security & Pengaturan Lanjutan
+
+---
+
+## Future Work (Rencana Pengembangan)
+
+Bagian ini mendokumentasikan rencana fitur berikutnya secara detail agar kontributor lain (manusia maupun AI) dapat melanjutkan dengan konteks penuh.
+
+### FW#6 — Integrasi AI Scanner & Smart Quarantine (OpenAI GPT-4o / GPT-5 class)
+
+**Tujuan:** Menggabungkan kekuatan *Artificial Intelligence* (menggunakan ekosistem OpenAI, minimal kapabilitas setara model "versi 5") dengan mesin *scanner* konvensional (ClamAV & YARA) untuk meningkatkan kepintaran pendeteksian *zero-day malware* serta akurasi sistem karantina.
+
+**Novelty / Kebaruan Berbasis AI:**
+1. **Semantic Zero-Day Detection**: AI tidak memindai berdasarkan basis data *signature*, melainkan membaca "niat" (intent) kode. AI mampu mendeteksi *backdoor* atau *webshell* PHP/Python yang di-*obfuscate* meskipun *file* tersebut sama sekali tidak terdeteksi oleh YARA atau ClamAV.
+2. **Auto-Remediation & Explanation**: AI akan mengevaluasi laporan deteksi kasar (seperti `Win.Trojan.Xyz FOUND` dari ClamAV) dan menghasilkan **Threat Intelligence Report** menggunakan bahasa manusia, lengkap dengan saran mitigasi bagi admin.
+3. **Dynamic YARA Rule Generator**: Saat AI menemukan ancaman kode *zero-day* lewat analisis semantik, sistem akan memerintahkan AI untuk menyusun baris kode aturan (`.yar`) YARA baru secara otomatis. Dengan ini, Quenza dapat secara perlahan "belajar dan menciptakan imunitas mandiri" tanpa harus mengandalkan pembaruan internet `freshclam`.
+4. **Smart Quarantine (False-Positive Mitigation)**: Sebelum sistem memindahkan *file* krusial ke folder karantina secara otomatis (yang berpotensi merusak *web-app* pengguna jika ternyata itu adalah *false-positive*), AI akan bertindak sebagai **Hakim Kedua**. AI mengevaluasi apakah *script* tersebut murni alat administratif atau benar-benar *malicious*.
+5. **AI-Assisted File Cleaning**: Untuk *file* yang terinfeksi sebagian (misal *file* WordPress inti yang disisipi kode *malware* di baris bawah), AI dapat menawarkan opsi **"Clean File"** dari menu Karantina—di mana AI secara akurat menghapus baris kode berbahaya saja dan memulihkan *file* ke tempat asalnya tanpa merusak struktur kode yang asli.
+
+**Integrasi Arsitektur (Pendekatan Moderat):**
+- Mengambil **jalan tengah (moderate)** antara efisiensi biaya API dan perlindungan maksimal. Sistem tidak akan mengirim file biner (seperti gambar, video, atau arsip zip), namun akan jauh lebih leluasa mengirimkan semua *script* berbasis teks.
+- **Tier 1 (Pemindaian Basis):** ClamAV & YARA memeriksa seluruh file dengan cepat secara lokal.
+- **Tier 2 (Penyaringan Moderat):** Semua *file* teks/script (`.php`, `.js`, `.py`, `.sh`, dll) yang memiliki **indikasi modifikasi baru**, ATAU seluruh *file* apa pun yang **ditangkap oleh Tier 1** (untuk *cross-validation*), akan dimasukkan ke antrean AI. Limitasi ukuran *file* untuk AI sedikit dilonggarkan agar kode kompleks tidak terpotong.
+- **Tier 3 (Evaluasi Mendalam AI):** OpenAI mengevaluasi seluruh *file* yang lolos filter Tier 2 untuk memberikan opini hukum kedua (*Second Opinion*), mencari *zero-day*, dan menyusun *Threat Intelligence Report*.
+
+**Estimasi kompleksitas:** Menengah-Tinggi. Membutuhkan modifikasi alur `scanner_service.py` untuk *cross-validation* dan penyediaan antarmuka khusus di halaman **Settings -> Security** agar pengguna dapat dengan mudah menginputkan dan menyimpan **API Key OpenAI** secara terenkripsi.
