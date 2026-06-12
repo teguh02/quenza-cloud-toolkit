@@ -67,12 +67,19 @@
               </div>
               <p class="truncate text-xs text-secondary">{{ m.summary }}</p>
             </div>
-            <form method="post" action="/projects/{{ project.id }}/sources/{{ s.id }}/delete" class="shrink-0"
-              onsubmit="return confirm('Hapus sumber ini dari project?');">
-              <button type="submit" class="flex h-8 w-8 items-center justify-center rounded-lg text-label transition-all duration-quenza ease-quenza hover:bg-red-50 hover:text-red-500" aria-label="Hapus sumber">
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <div class="flex items-center gap-1 shrink-0">
+              {% if s.source_type.value in ['mysql', 'postgres'] %}
+              <button type="button" onclick="testDbConnection({{ project.id }}, {{ s.id }}, this)" class="flex h-8 w-8 items-center justify-center rounded-lg text-label transition-all duration-quenza ease-quenza hover:bg-brand-teal/10 hover:text-brand-teal" title="Tes Koneksi">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
               </button>
-            </form>
+              {% endif %}
+              <form method="post" action="/projects/{{ project.id }}/sources/{{ s.id }}/delete"
+                onsubmit="return confirm('Hapus sumber ini dari project?');">
+                <button type="submit" class="flex h-8 w-8 items-center justify-center rounded-lg text-label transition-all duration-quenza ease-quenza hover:bg-red-50 hover:text-red-500" aria-label="Hapus sumber" title="Hapus Sumber">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+              </form>
+            </div>
           </li>
           {% endfor %}
         </ul>
@@ -171,8 +178,8 @@
         <form method="post" action="/projects/{{ project.id }}/update" class="mt-5 space-y-4">
           <div>
             <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Nama</label>
-            <input name="name" type="text" required maxlength="120" value="{{ project.name }}"
-              class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+            <input name="name" type="text" disabled value="{{ project.name }}" title="Nama project tidak dapat diubah setelah dibuat"
+              class="w-full cursor-not-allowed rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm font-medium text-secondary focus:outline-none opacity-70" />
           </div>
           <div>
             <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Deskripsi</label>
@@ -335,5 +342,31 @@
     document.addEventListener("DOMContentLoaded", onFreqChange);
     return { onFreqChange: onFreqChange };
   })();
+
+  function testDbConnection(projectId, sourceId, btn) {
+    var originalHtml = btn.innerHTML;
+    btn.innerHTML = `<svg class="h-4 w-4 animate-spin text-brand-teal" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4z"></path></svg>`;
+    btn.disabled = true;
+
+    fetch(`/projects/${projectId}/sources/${sourceId}/test`, { 
+      method: "POST", 
+      headers: { "Accept": "application/json" } 
+    })
+      .then(r => r.json())
+      .then(data => {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+        if(data.success) {
+          alert("Koneksi berhasil!\n" + data.message);
+        } else {
+          alert("Koneksi gagal:\n" + data.message);
+        }
+      })
+      .catch(e => {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+        alert("Terjadi kesalahan jaringan.");
+      });
+  }
 </script>
 {% endblock %}

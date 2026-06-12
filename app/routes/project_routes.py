@@ -181,7 +181,6 @@ async def project_sources_size_recompute(
 async def project_update(
     request: Request,
     project_id: int,
-    name: str = Form(...),
     description: str = Form(""),
     archive_format: str = Form("zip"),
     db: Session = Depends(get_db),
@@ -195,7 +194,6 @@ async def project_update(
         project_service.update_project(
             db,
             project_id,
-            name=name,
             description=description,
             archive_format=archive_format,
         )
@@ -345,6 +343,59 @@ async def source_delete(
             f"/projects/{project_id}", msg="Sumber tidak ditemukan.", type="error"
         )
     return _redirect(f"/projects/{project_id}", msg="Sumber dihapus.")
+
+
+@router.post(
+    "/{project_id}/sources/{source_id}/test",
+    name="source_test",
+    response_model=None,
+)
+async def source_test(
+    request: Request,
+    project_id: int,
+    source_id: int,
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    """Test connection for a database source."""
+    guard = require_login(request)
+    if guard is not None:
+        return JSONResponse({"success": False, "message": "Unauthorized"}, status_code=401)
+
+    project = project_service.get_project(db, project_id)
+    if not project:
+        return JSONResponse({"success": False, "message": "Project tidak ditemukan."}, status_code=404)
+
+    source = next((s for s in project.sources if s.id == source_id), None)
+    if not source:
+        return JSONResponse({"success": False, "message": "Sumber tidak ditemukan."}, status_code=404)
+
+    if source.source_type.value not in ["mysql", "postgres"]:
+        return JSONResponse({"success": False, "message": "Tipe sumber tidak didukung untuk tes."}, status_code=400)
+
+    from app.services import db_dump_service, crypto
+    
+    password = source.db_password
+    if password and password.startswith("gAAAAA"):
+        password = crypto.decrypt_secret(password) or ""
+
+    if source.source_type.value == "mysql":
+        ok, msg = db_dump_service.test_mysql_connection(
+            host=source.db_host,
+            port=source.db_port,
+            name=source.db_name,
+            user=source.db_user,
+            password=password,
+        )
+    else:
+        ok, msg = db_dump_service.test_postgres_connection(
+            host=source.db_host,
+            port=source.db_port,
+            name=source.db_name,
+            user=source.db_user,
+            password=password,
+        )
+
+    return JSONResponse({"success": ok, "message": msg})
 
 
 # --- Destinations linking, scheduling, and backup run (Phase 4) -------------
