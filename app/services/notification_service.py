@@ -126,10 +126,14 @@ def _human_size(num: float) -> str:
     return f"{num:.1f} PB"
 
 
-def _should_notify(cfg: settings_service.NotificationConfig, status: str) -> bool:
+def _should_notify(cfg: settings_service.NotificationConfig, status: str = "", event_type: str = "backup") -> bool:
     if cfg.channel == "none":
         return False
-    if cfg.notify_on == "failed" and status == "success":
+    # Check if the event is enabled
+    if not cfg.notify_events.get(event_type, False):
+        return False
+    # Backup/Restore specific status check
+    if event_type == "backup" and cfg.notify_on == "failed" and status == "success":
         return False
     return True
 
@@ -139,7 +143,7 @@ def notify_backup_result(result: dict, project_name: str = "") -> None:
     try:
         cfg = settings_service.get_notification_config()
         status = result.get("status", "failed")
-        if not _should_notify(cfg, status):
+        if not _should_notify(cfg, status, "backup"):
             return
 
         label = _status_label(status)
@@ -181,7 +185,7 @@ def notify_restore_result(result: dict, source_name: str = "") -> None:
     try:
         cfg = settings_service.get_notification_config()
         status = result.get("status", "failed")
-        if not _should_notify(cfg, status):
+        if not _should_notify(cfg, status, "backup"):
             return
 
         label = _status_label(status)
@@ -213,6 +217,82 @@ def notify_restore_result(result: dict, source_name: str = "") -> None:
             send_telegram(html)
     except Exception:  # pragma: no cover
         logger.exception("notify_restore_result failed")
+
+
+def notify_scan_completed(project_name: str, file_count: int, infected_count: int, duration_ms: float) -> None:
+    """Notify about an antivirus scan completion."""
+    try:
+        cfg = settings_service.get_notification_config()
+        if not _should_notify(cfg, event_type="scan"):
+            return
+
+        dur = f"{duration_ms / 1000:.1f}s"
+        when = settings_service.to_local(_now())
+        
+        if infected_count > 0:
+            label = "TERINFEKSI"
+            emoji = "🚨"
+        else:
+            label = "BERSIH"
+            emoji = "🛡️"
+
+        subject = f"[Quenza] Scan AV {label}: {project_name}"
+        lines = [
+            f"Project : {project_name}",
+            f"Hasil   : {label}",
+            f"File    : {file_count} dipindai",
+            f"Ancaman : {infected_count} ditemukan",
+            f"Durasi  : {dur}",
+            f"Waktu   : {when.strftime('%Y-%m-%d %H:%M %Z') if when else '-'}",
+        ]
+        body = "\n".join(lines)
+
+        if cfg.channel == "email":
+            send_email(subject, body, cfg.recipients)
+        elif cfg.channel == "telegram":
+            html = (
+                f"{emoji} <b>Scan Antivirus {label}</b>\n"
+                f"<b>Project:</b> {project_name}\n"
+                f"<b>File Dipindai:</b> {file_count}\n"
+                f"<b>Ancaman:</b> {infected_count}\n"
+                f"<b>Durasi:</b> {dur}"
+            )
+            send_telegram(html)
+    except Exception:
+        logger.exception("notify_scan_completed failed")
+
+
+def notify_disk_warning(disk_path: str, free_gb: float, percent_used: float) -> None:
+    """Notify when local disk usage is critically high."""
+    try:
+        cfg = settings_service.get_notification_config()
+        if not _should_notify(cfg, event_type="disk"):
+            return
+
+        when = settings_service.to_local(_now())
+        subject = f"[Quenza] Peringatan: Disk Penuh ({percent_used:.1f}%)"
+        lines = [
+            "Peringatan Ruang Penyimpanan",
+            "----------------------------",
+            f"Lokasi  : {disk_path}",
+            f"Terpakai: {percent_used:.1f}%",
+            f"Sisa    : {free_gb:.1f} GB",
+            f"Waktu   : {when.strftime('%Y-%m-%d %H:%M %Z') if when else '-'}",
+        ]
+        body = "\n".join(lines)
+
+        if cfg.channel == "email":
+            send_email(subject, body, cfg.recipients)
+        elif cfg.channel == "telegram":
+            html = (
+                f"⚠️ <b>Peringatan: Storage Penuh</b>\n"
+                f"<b>Lokasi:</b> {disk_path}\n"
+                f"<b>Terpakai:</b> {percent_used:.1f}%\n"
+                f"<b>Sisa:</b> {free_gb:.1f} GB"
+            )
+            send_telegram(html)
+    except Exception:
+        logger.exception("notify_disk_warning failed")
 
 
 def _now():

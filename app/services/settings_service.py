@@ -26,6 +26,7 @@ from app.services import crypto
 KEY_TIMEZONE = "timezone"
 KEY_NOTIFY_CHANNEL = "notify_channel"      # none | email | telegram
 KEY_NOTIFY_ON = "notify_on"                # all | failed
+KEY_NOTIFY_EVENTS = "notify_events"        # JSON: {"backup": true, "scan": false, "disk": false}
 KEY_SMTP = "smtp"                          # JSON: host, port, user, password(enc), from_addr, use_tls
 KEY_EMAIL_RECIPIENTS = "email_recipients"  # JSON list[str]
 KEY_TELEGRAM = "telegram"                  # JSON: token(enc), chat_id
@@ -177,6 +178,7 @@ class TelegramConfig:
 class NotificationConfig:
     channel: str = "none"        # none | email | telegram
     notify_on: str = "all"       # all | failed
+    notify_events: dict = field(default_factory=lambda: {"backup": True, "scan": False, "disk": False})
     smtp: SmtpConfig = field(default_factory=SmtpConfig)
     recipients: list[str] = field(default_factory=list)
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
@@ -195,6 +197,16 @@ def get_notification_config() -> NotificationConfig:
         channel=_get_raw(KEY_NOTIFY_CHANNEL, "none") or "none",
         notify_on=_get_raw(KEY_NOTIFY_ON, "all") or "all",
     )
+
+    try:
+        events_raw = json.loads(_get_raw(KEY_NOTIFY_EVENTS, "{}") or "{}")
+    except json.JSONDecodeError:
+        events_raw = {}
+    cfg.notify_events = {
+        "backup": bool(events_raw.get("backup", True)),
+        "scan": bool(events_raw.get("scan", False)),
+        "disk": bool(events_raw.get("disk", False)),
+    }
 
     # SMTP
     try:
@@ -258,6 +270,10 @@ def save_notifications(
     telegram_token: str = "",
     telegram_chat_id: str = "",
     keep_existing_secrets: bool = True,
+    # events
+    notify_on_backup: bool = True,
+    notify_on_scan: bool = False,
+    notify_on_disk: bool = False,
 ) -> None:
     """Validate and persist notification settings.
 
@@ -340,5 +356,13 @@ def save_notifications(
 
     _set_raw(db, KEY_NOTIFY_CHANNEL, channel)
     _set_raw(db, KEY_NOTIFY_ON, notify_on)
+
+    events_obj = {
+        "backup": bool(notify_on_backup),
+        "scan": bool(notify_on_scan),
+        "disk": bool(notify_on_disk),
+    }
+    _set_raw(db, KEY_NOTIFY_EVENTS, json.dumps(events_obj, ensure_ascii=False))
+
     db.commit()
     invalidate_cache()

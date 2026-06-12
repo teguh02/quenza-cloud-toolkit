@@ -77,13 +77,33 @@
           </div>
 
           {# Notify on (when channel != none) #}
-          <div id="notif-on-wrap" {% if notif.channel == 'none' %}style="display:none"{% endif %}>
-            <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Kirim notifikasi untuk</label>
-            <select name="notify_on"
-              class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25">
-              <option value="all" {{ "selected" if notif.notify_on == "all" }}>Semua hasil (sukses, sebagian, gagal)</option>
-              <option value="failed" {{ "selected" if notif.notify_on == "failed" }}>Hanya gagal / sebagian</option>
-            </select>
+          <div id="notif-on-wrap" class="space-y-4" {% if notif.channel == 'none' %}style="display:none"{% endif %}>
+            <div>
+              <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Filter Status Backup/Restore</label>
+              <select name="notify_on"
+                class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25">
+                <option value="all" {{ "selected" if notif.notify_on == "all" }}>Semua hasil (sukses, sebagian, gagal)</option>
+                <option value="failed" {{ "selected" if notif.notify_on == "failed" }}>Hanya gagal / sebagian</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Kejadian (Event) Notifikasi</label>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <label class="flex items-center gap-3 rounded-xl border border-line bg-canvas px-4 py-3 cursor-pointer transition-colors hover:border-brand-teal/50">
+                  <input type="checkbox" name="notify_on_backup" value="1" class="h-4 w-4 rounded accent-brand-teal" {% if notif.notify_events.backup %}checked{% endif %}>
+                  <span class="text-sm font-semibold text-heading">Selesai Backup</span>
+                </label>
+                <label class="flex items-center gap-3 rounded-xl border border-line bg-canvas px-4 py-3 cursor-pointer transition-colors hover:border-brand-teal/50">
+                  <input type="checkbox" name="notify_on_scan" value="1" class="h-4 w-4 rounded accent-brand-teal" {% if notif.notify_events.scan %}checked{% endif %}>
+                  <span class="text-sm font-semibold text-heading">Selesai Scan AV</span>
+                </label>
+                <label class="flex items-center gap-3 rounded-xl border border-line bg-canvas px-4 py-3 cursor-pointer transition-colors hover:border-brand-teal/50">
+                  <input type="checkbox" name="notify_on_disk" value="1" class="h-4 w-4 rounded accent-brand-teal" {% if notif.notify_events.disk %}checked{% endif %}>
+                  <span class="text-sm font-semibold text-heading">Disk > 90%</span>
+                </label>
+              </div>
+            </div>
           </div>
 
           {# ===== EMAIL fields ===== #}

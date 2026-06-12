@@ -111,6 +111,18 @@ def run_backup(
 
         # 1) Staging directory
         staging = tempfile.mkdtemp(prefix=f"quenza_bkp_{project_id}_")
+        
+        try:
+            total, used, free = shutil.disk_usage(staging)
+            if total > 0:
+                percent_used = (used / total) * 100
+                if percent_used > 90.0:
+                    free_gb = free / (1024 ** 3)
+                    from app.services import notification_service
+                    notification_service.notify_disk_warning(staging, free_gb, percent_used)
+        except Exception as e:
+            logger.warning(f"Gagal memeriksa disk usage: {e}")
+
         dump_dir = Path(staging) / "_dumps"
         dump_dir.mkdir(parents=True, exist_ok=True)
 

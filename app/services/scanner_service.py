@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 
 from app.database import SessionLocal
 from app.models import QuarantineLog, AppSetting
+from app.services import notification_service
 
 try:
     import yara
@@ -358,6 +359,13 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
         db.add(blog)
         db.commit()
         db.refresh(blog)
+        
+        notification_service.notify_scan_completed(
+            project_name="Security Scanner",
+            file_count=total_files,
+            infected_count=len(findings),
+            duration_ms=duration_ms
+        )
         
         return {
             "status": status,

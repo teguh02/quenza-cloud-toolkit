@@ -94,6 +94,9 @@ async def settings_notifications(
     recipients_raw: str = Form(""),
     telegram_token: str = Form(""),
     telegram_chat_id: str = Form(""),
+    notify_on_backup: str = Form(""),
+    notify_on_scan: str = Form(""),
+    notify_on_disk: str = Form(""),
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
     """Save notification settings."""
@@ -115,6 +118,9 @@ async def settings_notifications(
             recipients_raw=recipients_raw,
             telegram_token=telegram_token,
             telegram_chat_id=telegram_chat_id,
+            notify_on_backup=bool(notify_on_backup),
+            notify_on_scan=bool(notify_on_scan),
+            notify_on_disk=bool(notify_on_disk),
         )
     except ValueError as exc:
         return _redirect("/settings", msg=str(exc), type="error")
