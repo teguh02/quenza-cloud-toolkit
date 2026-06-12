@@ -134,3 +134,20 @@ async def settings_notifications_test(
 
     ok, message = notification_service.send_test()
     return _redirect("/settings", msg=message, type="success" if ok else "error")
+
+
+@router.get("/api/check-update", name="settings_check_update", response_model=None)
+async def settings_check_update(request: Request):
+    """Check for toolkit updates via background AJAX."""
+    guard = require_login(request)
+    if guard is not None:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+        
+    try:
+        import toolkit
+        status = toolkit.check_update(verbose=False)
+        return status
+    except Exception as exc:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"error": str(exc)}, status_code=500)

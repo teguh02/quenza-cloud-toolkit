@@ -6,6 +6,7 @@
 {% include "partials/flash.html" %}
 
 <div class="mx-auto max-w-3xl space-y-6">
+  <div id="update-alert-container"></div>
 
   {# ============== ZONA WAKTU ============== #}
   <section class="rounded-3xl border border-line bg-surface p-6 shadow-card">
@@ -182,5 +183,47 @@
     }
     return { showChannel: showChannel };
   })();
+
+  document.addEventListener("DOMContentLoaded", function() {
+    fetch("/settings/api/check-update", { headers: { "Accept": "application/json" } })
+      .then(r => r.json())
+      .then(data => {
+        if (data.available) {
+          var container = document.getElementById("update-alert-container");
+          if (!container) return;
+          
+          var local = data.local ? data.local.substring(0, 8) : "Unknown";
+          var remote = data.remote ? data.remote.substring(0, 8) : "Unknown";
+          
+          var html = `
+            <div class="flex items-start gap-4 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-card transition-all duration-500">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 shadow-sm">
+                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <h2 class="text-lg font-bold text-amber-900">Pembaruan Tersedia!</h2>
+                <p class="mt-1 text-sm text-amber-800">Versi baru Quenza Cloud Toolkit telah dirilis.</p>
+                <div class="mt-3 inline-block rounded-xl bg-amber-100/50 px-4 py-2 border border-amber-200/50">
+                  <p class="text-xs font-medium text-amber-800">Lokal: <span class="font-mono font-bold">${local}</span> <span class="mx-2 text-amber-600/50">&rarr;</span> Terbaru: <span class="font-mono font-bold">${remote}</span></p>
+                </div>
+                <div class="mt-4">
+                  <p class="text-xs font-medium text-amber-700">Untuk memperbarui, silakan buka terminal (SSH) server Anda dan jalankan perintah berikut di dalam folder Quenza:</p>
+                  <div class="mt-2 flex items-center gap-3 rounded-xl bg-white px-4 py-3 border border-amber-200 shadow-sm">
+                    <svg class="h-4 w-4 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                    <code class="text-sm font-mono font-bold text-amber-900 select-all">python toolkit.py update</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+          container.innerHTML = html;
+        }
+      })
+      .catch(e => console.error("Update check failed:", e));
+  });
 </script>
 {% endblock %}
