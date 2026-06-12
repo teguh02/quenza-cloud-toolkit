@@ -7,7 +7,8 @@
     currentTab: "system",
     loading: false,
     actionType: null, // "kill", "firewall_rule"
-    actionTarget: null // e.g. pid
+    actionTarget: null, // e.g. pid
+    avTargets: []
   };
 
   function $(id) { return document.getElementById(id); }
@@ -217,8 +218,10 @@
       html += '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
       html += 'File Explorer</button>';
       html += '</div>';
-      html += '<textarea id="av-targets" class="w-full h-24 rounded-xl border border-line bg-surface p-3 text-xs font-mono focus:border-brand-teal focus:outline-none" placeholder="/path/to/folder\n/another/path">' + (conf.av_targets.join('\\n')) + '</textarea>';
-      html += '<p class="text-[11px] text-secondary mt-1">Masukkan satu path per baris, atau gunakan tombol Explorer di atas.</p>';
+      
+      state.avTargets = conf.av_targets ? conf.av_targets.slice() : [];
+      html += '<div id="av-targets-container"></div>';
+      
       html += '</div>';
       html += '</div>'; // End grid
       
@@ -257,6 +260,42 @@
       
       html += '</div>'; // End space-y-6
       content.innerHTML = html;
+      renderAvTargets();
+    }
+  }
+
+  function renderAvTargets() {
+    var c = $("av-targets-container");
+    if (!c) return;
+    if (state.avTargets.length === 0) {
+      c.innerHTML = '<div class="rounded-2xl border border-dashed border-line bg-canvas px-6 py-6 text-center"><p class="text-sm font-semibold text-heading">Belum ada target direktori.</p><p class="mt-1 text-xs text-secondary">Gunakan <span class="font-semibold text-brand-teal">File Explorer</span> untuk menambahkannya.</p></div>';
+      return;
+    }
+    var html = '<ul class="space-y-2.5 max-h-64 overflow-y-auto pr-2">';
+    state.avTargets.forEach(function(t, idx) {
+      html += '<li class="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 transition-colors hover:border-brand-teal/30">';
+      html += '<div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-pastel-blue text-blue-500"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>';
+      html += '<div class="min-w-0 flex-1"><p class="truncate text-sm font-mono text-heading" title="' + escapeHtml(t) + '">' + escapeHtml(t) + '</p></div>';
+      html += '<button type="button" onclick="SecurityMgmt.removeAvTarget(' + idx + ')" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-secondary hover:bg-red-50 hover:text-red-500 transition-colors"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>';
+      html += '</li>';
+    });
+    html += '</ul>';
+    c.innerHTML = html;
+  }
+
+  function addAvTargets(paths) {
+    paths.forEach(function(p) {
+      if (state.avTargets.indexOf(p) === -1) {
+        state.avTargets.push(p);
+      }
+    });
+    renderAvTargets();
+  }
+
+  function removeAvTarget(idx) {
+    if (idx >= 0 && idx < state.avTargets.length) {
+      state.avTargets.splice(idx, 1);
+      renderAvTargets();
     }
   }
 
@@ -326,7 +365,7 @@
   function saveAvConfig() {
       var enabled = $("av-enabled").checked;
       var autoq = $("av-auto-quarantine").checked;
-      var tgs = $("av-targets").value.split("\\n").map(function(s){return s.trim();}).filter(function(s){return s.length > 0;});
+      var tgs = state.avTargets;
       
       apiPost("/api/security/antivirus/config", {
           av_enabled: enabled,
@@ -372,6 +411,8 @@
     executeAction: executeAction,
     saveAvConfig: saveAvConfig,
     triggerAvScan: triggerAvScan,
-    avAction: avAction
+    avAction: avAction,
+    addAvTargets: addAvTargets,
+    removeAvTarget: removeAvTarget
   };
 })();

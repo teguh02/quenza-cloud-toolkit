@@ -156,9 +156,8 @@ async def api_quarantine_action(
 @router.post("/api/security/antivirus/scan")
 async def api_manual_scan(_auth: None = Depends(require_api_auth)):
     try:
-        # Trigger background standalone scan asynchronously
-        import threading
-        threading.Thread(target=scanner_service.run_standalone_scan).start()
+        from app.services import job_service
+        job_service.enqueue_scan(trigger="manual")
         return {"ok": True, "message": "Pemindaian manual telah dijalankan di latar belakang."}
     except Exception as e:
         return {"ok": False, "error": str(e)}

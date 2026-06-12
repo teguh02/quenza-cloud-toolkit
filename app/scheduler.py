@@ -49,6 +49,17 @@ def _run_scheduled_backup(project_id: int) -> None:
                        project_id, exc)
 
 
+def _run_scheduled_scan() -> None:
+    """Job target: enqueue a background scan with the 'schedule' trigger."""
+    logger.info("Scheduled Antivirus scan triggering")
+    try:
+        from app.services import job_service
+        job_id = job_service.enqueue_scan(trigger="schedule")
+        logger.info("Scheduled scan enqueued as job %s", job_id)
+    except Exception as exc:
+        logger.warning("Scheduled scan not started: %s", exc)
+
+
 def _scheduler_timezone() -> str:
     """Return the configured global timezone name (fallback UTC)."""
     try:
@@ -198,12 +209,11 @@ def sync_av_scan() -> None:
     try:
         setting = db.query(AppSetting).filter_by(key="av_enabled").first()
         if setting and setting.value == "1":
-            from app.services import scanner_service
             tz = _scheduler_timezone()
             # Default to running daily at 03:00 local time
             trigger = CronTrigger(hour=3, minute=0, timezone=tz)
             _scheduler.add_job(
-                scanner_service.run_standalone_scan,
+                _run_scheduled_scan,
                 trigger=trigger,
                 id=job_id,
                 replace_existing=True,

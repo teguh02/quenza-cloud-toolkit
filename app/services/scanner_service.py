@@ -213,10 +213,17 @@ def delete_quarantined_file(log_id: int, db=None) -> bool:
             db.close()
 
 
-def run_standalone_scan():
+def run_standalone_scan(progress_cb=None, trigger="manual"):
     """Run a standalone scan based on global Security settings."""
+    start_time = datetime.now(timezone.utc)
     db = SessionLocal()
+    
+    def emit(idx, label, pct, total=100):
+        if progress_cb:
+            progress_cb(idx, label, pct, total)
+
     try:
+        emit(0, "Membaca konfigurasi antivirus...", 5)
         # Load settings
         targets_setting = db.query(AppSetting).filter_by(key="av_targets").first()
         auto_quarantine_setting = db.query(AppSetting).filter_by(key="av_auto_quarantine").first()
@@ -226,20 +233,42 @@ def run_standalone_scan():
         
         if not targets:
             logger.info("No targets configured for standalone scan. Skipping.")
-            return
+            return {"status": "success", "message": "Tidak ada target direktori untuk dipindai."}
 
-        findings = []
+        emit(1, "Menghimpun daftar file...", 10)
+        files_to_scan = []
         for target in targets:
             if not os.path.exists(target):
                 continue
             if os.path.isdir(target):
-                res = scan_directory(target)
-                findings.extend(res)
+                for root, _, files in os.walk(target):
+                    for name in files:
+                        files_to_scan.append(os.path.join(root, name))
             else:
-                triggered = scan_file(target)
-                if triggered:
-                    findings.append({"file": target, "rules": triggered})
+                files_to_scan.append(target)
+                
+        total_files = len(files_to_scan)
+        if total_files == 0:
+            logger.info("No files found in targets.")
+            return {"status": "success", "message": "Tidak ditemukan file pada target direktori."}
+
+        rules = get_yara_rules()
+        if not rules:
+            return {"status": "failed", "message": "Mesin YARA (aturan deteksi) gagal dimuat."}
+
+        emit(2, f"Memindai {total_files} file...", 20)
+        findings = []
+        for i, filepath in enumerate(files_to_scan):
+            if i % max(1, total_files // 20) == 0:
+                pct = 20 + int((i / total_files) * 70)
+                emit(2, f"Memindai file ke-{i} dari {total_files}...", pct)
+
+            triggered = scan_file(filepath)
+            if triggered:
+                findings.append({"file": filepath, "rules": triggered})
         
+        emit(3, "Menganalisa dan karantina...", 95)
+        quarantined = []
         if auto_quarantine and findings:
             logger.info(f"Auto-quarantining {len(findings)} detected files.")
             for f in findings:
@@ -248,10 +277,54 @@ def run_standalone_scan():
                 try:
                     if os.path.exists(filepath):
                         quarantine_file(filepath, rule_matched, db=db)
+                        quarantined.append({"file": filepath, "status": "quarantined"})
                 except Exception as e:
                     logger.error(f"Failed to auto-quarantine {filepath}: {e}")
+                    quarantined.append({"file": filepath, "status": "error", "error": str(e)})
         elif findings:
             logger.warning(f"Standalone scan found {len(findings)} malware, but auto-quarantine is OFF.")
             
+        duration_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
+        
+        if findings:
+            status = "failed"
+            msg = f"Peringatan! Ditemukan {len(findings)} file terinfeksi."
+            if auto_quarantine:
+                msg += f" {len(quarantined)} file berhasil dikarantina."
+        else:
+            status = "success"
+            msg = f"Sistem aman. {total_files} file bersih tanpa masalah."
+
+        detail = {
+            "total_files_scanned": total_files,
+            "findings": findings,
+            "quarantined": quarantined
+        }
+
+        from app.models import BackupLog
+        blog = BackupLog(
+            project_id=None,
+            project_name="Security Scanner",
+            action="scan",
+            status=status,
+            trigger=trigger,
+            message=msg,
+            detail_json=json.dumps(detail, ensure_ascii=False),
+            duration_ms=duration_ms
+        )
+        db.add(blog)
+        db.commit()
+        db.refresh(blog)
+        
+        return {
+            "status": status,
+            "message": msg,
+            "detail": detail,
+            "log_id": blog.id
+        }
+            
+    except Exception as e:
+        logger.error(f"Scan failed: {e}")
+        return {"status": "failed", "message": f"Terjadi kesalahan saat memindai: {e}"}
     finally:
         db.close()

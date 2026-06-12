@@ -123,11 +123,57 @@ def enqueue_backup(project_id: int, trigger: str = "manual") -> int:
     return job_id
 
 
-def _project_has_active_job(project_id: int) -> bool:
+def enqueue_scan(trigger: str = "manual") -> int:
+    """Create a queued BackupJob for standalone Antivirus scan."""
+    project_id = 0  # 0 indicates system scanner lock
+    with _lock:
+        if project_id in _running_projects:
+            raise JobBusyError("Pemindaian Antivirus sedang berjalan.")
+        if _project_has_active_job(None):
+            raise JobBusyError("Pemindaian Antivirus sedang berjalan.")
+        _running_projects.add(project_id)
+
+    db = SessionLocal()
+    try:
+        job = BackupJob(
+            project_id=None,
+            project_name="Security Scanner",
+            action="scan",
+            trigger=trigger,
+            status="queued",
+            progress=0,
+            current_step="Menunggu antrian...",
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+        job_id = job.id
+    except Exception:
+        with _lock:
+            _running_projects.discard(project_id)
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+    try:
+        _get_executor().submit(_run_job, job_id, project_id, trigger, "scan")
+    except Exception:
+        with _lock:
+            _running_projects.discard(project_id)
+        _update_job(job_id, status="failed", message="Gagal menjadwalkan scan job.",
+                    finished_at=_utcnow())
+        raise
+
+    logger.info("Enqueued scan job %s (%s)", job_id, trigger)
+    return job_id
+
+
+def _project_has_active_job(project_id: int | None) -> bool:
     db = SessionLocal()
     try:
         stmt = select(BackupJob.id).where(
-            BackupJob.project_id == project_id,
+            BackupJob.project_id == project_id if project_id is not None else BackupJob.action == "scan",
             BackupJob.status.in_(_ACTIVE_STATUSES),
         ).limit(1)
         return db.scalars(stmt).first() is not None
@@ -138,8 +184,8 @@ def _project_has_active_job(project_id: int) -> bool:
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
-def _run_job(job_id: int, project_id: int, trigger: str) -> None:
-    """Execute the backup, updating job progress along the way."""
+def _run_job(job_id: int, project_id: int, trigger: str, action: str = "backup") -> None:
+    """Execute the backup or scan, updating job progress along the way."""
     _update_job(job_id, status="running", started_at=_utcnow(),
                 current_step="Memulai...", progress=1)
 
@@ -153,11 +199,19 @@ def _run_job(job_id: int, project_id: int, trigger: str) -> None:
         )
 
     try:
-        from app.services import backup_service
-
-        result = backup_service.run_backup(
-            project_id, trigger=trigger, progress_cb=progress_cb
-        )
+        if action == "backup":
+            from app.services import backup_service
+            result = backup_service.run_backup(
+                project_id, trigger=trigger, progress_cb=progress_cb
+            )
+        elif action == "scan":
+            from app.services import scanner_service
+            result = scanner_service.run_standalone_scan(
+                progress_cb=progress_cb, trigger=trigger
+            )
+        else:
+            result = {"status": "failed", "message": f"Action {action} tidak dikenali."}
+            
         status = result.get("status", "failed")
         _update_job(
             job_id,

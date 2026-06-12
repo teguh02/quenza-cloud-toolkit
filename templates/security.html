@@ -139,16 +139,7 @@
     if (window.QuenzaFileManager) {
       QuenzaFileManager.init({
         onSubmitCallback: function(paths) {
-          var ta = document.getElementById("av-targets");
-          if (ta) {
-            var current = ta.value.split("\n").map(function(s){return s.trim()}).filter(function(s){return s.length > 0;});
-            paths.forEach(function(p) {
-              if (current.indexOf(p) === -1) {
-                current.push(p);
-              }
-            });
-            ta.value = current.join("\\n");
-          }
+          SecurityMgmt.addAvTargets(paths);
           QuenzaModal.close("modal-file-manager");
         }
       });

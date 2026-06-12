@@ -24,12 +24,13 @@
   </section>
 
   {# Summary chips #}
-  <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+  <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
     {% set chips = [
       {"label": "Total Log", "value": counts.total, "tone": "pastel-blue", "fg": "text-blue-500"},
       {"label": "Backup Sukses", "value": counts.backup_success, "tone": "pastel-green", "fg": "text-brand-teal"},
       {"label": "Backup Gagal", "value": counts.backup_failed, "tone": "pastel-orange", "fg": "text-amber-500"},
-      {"label": "Restore", "value": counts.restore_total, "tone": "pastel-purple", "fg": "text-purple-500"}
+      {"label": "Restore", "value": counts.restore_total, "tone": "pastel-purple", "fg": "text-purple-500"},
+      {"label": "Scan", "value": counts.scan_total|default(0), "tone": "pastel-indigo", "fg": "text-indigo-500"}
     ] %}
     {% for chip in chips %}
     <div class="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 shadow-card">
@@ -50,6 +51,7 @@
       {{ filter_link("", filter_status, "Semua Aksi", filter_action == "") }}
       {{ filter_link("backup", filter_status, "Backup", filter_action == "backup") }}
       {{ filter_link("restore", filter_status, "Restore", filter_action == "restore") }}
+      {{ filter_link("scan", filter_status, "Scan", filter_action == "scan") }}
     </div>
     <div class="inline-flex rounded-xl border border-line bg-canvas p-1">
       {{ filter_link(filter_action, "", "Semua Status", filter_status == "") }}
@@ -79,7 +81,7 @@
             <td class="whitespace-nowrap px-6 py-4 text-secondary">{{ log.created_at | localtime }}</td>
             <td class="px-6 py-4">
               <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold
-                {% if log.action == 'restore' %}bg-pastel-purple text-purple-600{% else %}bg-pastel-blue text-blue-600{% endif %}">
+                {% if log.action == 'restore' %}bg-pastel-purple text-purple-600{% elif log.action == 'scan' %}bg-indigo-50 text-indigo-600{% else %}bg-pastel-blue text-blue-600{% endif %}">
                 {{ log.action }}
               </span>
               {% if log.trigger == 'schedule' %}

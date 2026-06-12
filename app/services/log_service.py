@@ -34,7 +34,7 @@ def list_logs(
     stmt = select(BackupLog)
     count_stmt = select(func.count(BackupLog.id))
 
-    if action in ("backup", "restore"):
+    if action in ("backup", "restore", "scan"):
         stmt = stmt.where(BackupLog.action == action)
         count_stmt = count_stmt.where(BackupLog.action == action)
     if status in ("success", "failed", "partial"):
@@ -89,6 +89,7 @@ def summary_counts(db: Session) -> dict:
         "backup_failed": _count(action="backup", status="failed"),
         "backup_partial": _count(action="backup", status="partial"),
         "restore_total": _count(action="restore"),
+        "scan_total": _count(action="scan"),
     }
 
 
