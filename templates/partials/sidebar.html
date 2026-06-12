@@ -6,17 +6,35 @@
   Active item uses the Quenza nav gradient pill (#0EA5A4 -> #84CC16).
 #}
 {% set nav_items = [
-  {"key": "dashboard",    "label": "Dashboard",       "href": "/",             "icon": "grid"},
-  {"key": "projects",     "label": "Projects",        "href": "/projects",     "icon": "folder"},
-  {"key": "filemanager",  "label": "File Manager",    "href": "/filemanager",  "icon": "hard-drive"},
-  {"key": "docker",       "label": "Docker Mgmt",     "href": "/docker",       "icon": "docker"},
-  {"key": "schedules",    "label": "Schedules",       "href": "/schedules",    "icon": "clock"},
-  {"key": "security",     "label": "Security",        "href": "/security",     "icon": "security"},
-  {"key": "destinations", "label": "Destinations",    "href": "/destinations", "icon": "cloud"},
-  {"key": "restore",      "label": "Restore",         "href": "/restore",      "icon": "restore"},
-  {"key": "history",      "label": "History / Logs",  "href": "/history",      "icon": "list"},
-  {"key": "settings",     "label": "Settings",        "href": "/settings",     "icon": "cog"},
-  {"key": "help",         "label": "Help / Docs",     "href": "/help",         "icon": "help"}
+  {"type": "link", "key": "dashboard", "label": "Dashboard", "href": "/", "icon": "grid"},
+  {
+    "type": "group", "id": "grp-backup", "label": "Backup & Restore", "icon": "folder",
+    "subkeys": ["projects", "destinations", "restore"],
+    "subitems": [
+      {"key": "projects",     "label": "Projects",        "href": "/projects"},
+      {"key": "destinations", "label": "Destinations",    "href": "/destinations"},
+      {"key": "restore",      "label": "Restore",         "href": "/restore"}
+    ]
+  },
+  {
+    "type": "group", "id": "grp-system", "label": "System & Auto", "icon": "hard-drive",
+    "subkeys": ["filemanager", "docker", "schedules"],
+    "subitems": [
+      {"key": "filemanager",  "label": "File Manager",    "href": "/filemanager"},
+      {"key": "docker",       "label": "Docker Mgmt",     "href": "/docker"},
+      {"key": "schedules",    "label": "Schedules",       "href": "/schedules"}
+    ]
+  },
+  {
+    "type": "group", "id": "grp-security", "label": "Config & Security", "icon": "security",
+    "subkeys": ["security", "history", "settings"],
+    "subitems": [
+      {"key": "security",     "label": "Security",        "href": "/security"},
+      {"key": "history",      "label": "History / Logs",  "href": "/history"},
+      {"key": "settings",     "label": "Settings",        "href": "/settings"}
+    ]
+  },
+  {"type": "link", "key": "help", "label": "Help / Docs", "href": "/help", "icon": "help"}
 ] %}
 
 <aside
@@ -41,18 +59,42 @@
   {# Navigation #}
   <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-2">
     {% for item in nav_items %}
-    {% set is_active = (active_page == item.key) %}
-    <a
-      href="{{ item.href }}"
-      class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-quenza ease-quenza
-      {% if is_active %}bg-nav-gradient text-white shadow-card{% else %}text-secondary hover:bg-canvas hover:text-heading{% endif %}"
-      {% if is_active %}aria-current="page"{% endif %}
-    >
-      <span class="flex h-5 w-5 shrink-0 items-center justify-center">
-        {% include "partials/icons/" + item.icon + ".html" ignore missing %}
-      </span>
-      <span class="sidebar-label">{{ item.label }}</span>
-    </a>
+      {% if item.type == "link" %}
+        {% set is_active = (active_page == item.key) %}
+        <a href="{{ item.href }}" class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-quenza ease-quenza {% if is_active %}bg-nav-gradient text-white shadow-card{% else %}text-secondary hover:bg-canvas hover:text-heading{% endif %}" {% if is_active %}aria-current="page"{% endif %}>
+          <span class="flex h-5 w-5 shrink-0 items-center justify-center">
+            {% include "partials/icons/" + item.icon + ".html" ignore missing %}
+          </span>
+          <span class="sidebar-label">{{ item.label }}</span>
+        </a>
+      {% elif item.type == "group" %}
+        {% set is_group_active = active_page in item.subkeys %}
+        <div class="quenza-nav-group">
+          <button type="button" data-target="{{ item.id }}" class="quenza-nav-group-toggle group flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-secondary transition-all duration-quenza ease-quenza hover:bg-canvas hover:text-heading {% if is_group_active %}bg-canvas/50 text-heading{% endif %}">
+            <div class="flex items-center gap-3">
+              <span class="flex h-5 w-5 shrink-0 items-center justify-center">
+                {% include "partials/icons/" + item.icon + ".html" ignore missing %}
+              </span>
+              <span class="sidebar-label">{{ item.label }}</span>
+            </div>
+            <span class="sidebar-label">
+              <svg class="quenza-chevron h-4 w-4 transition-transform duration-300 {% if is_group_active %}rotate-180{% endif %}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </span>
+          </button>
+          <div id="{{ item.id }}" class="quenza-nav-submenu mt-1 space-y-1 overflow-hidden transition-all duration-300 {% if not is_group_active %}hidden{% endif %}">
+            {% for sub in item.subitems %}
+              {% set is_sub_active = (active_page == sub.key) %}
+              <a href="{{ sub.href }}" class="group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-quenza ease-quenza {% if is_sub_active %}bg-nav-gradient text-white shadow-card{% else %}text-secondary hover:bg-canvas hover:text-heading{% endif %}" {% if is_sub_active %}aria-current="page"{% endif %}>
+                <span class="sidebar-label w-5 shrink-0"></span>
+                <span class="flex h-5 w-5 shrink-0 items-center justify-center">
+                  <div class="h-1.5 w-1.5 rounded-full bg-current opacity-70 transition-opacity group-hover:opacity-100"></div>
+                </span>
+                <span class="sidebar-label">{{ sub.label }}</span>
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
     {% endfor %}
   </nav>
 

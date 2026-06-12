@@ -74,8 +74,30 @@
     });
   }
 
+  // --- Collapsible Sidebar ---------------------------------------------------
+  function initCollapsibleSidebar() {
+    var toggles = document.querySelectorAll('.quenza-nav-group-toggle');
+    toggles.forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        var targetId = btn.getAttribute('data-target');
+        var target = document.getElementById(targetId);
+        var chevron = btn.querySelector('.quenza-chevron');
+        if (!target) return;
+        
+        if (target.classList.contains('hidden')) {
+          target.classList.remove('hidden');
+          if (chevron) chevron.classList.add('rotate-180');
+        } else {
+          target.classList.add('hidden');
+          if (chevron) chevron.classList.remove('rotate-180');
+        }
+      });
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     initSidebar();
     initPasswordToggle();
+    initCollapsibleSidebar();
   });
 })();
