@@ -17,6 +17,12 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
   - **Antivirus & Malware Scanner**: Integrasi mesin **ClamAV** dan **YARA** secara bersamaan. Laporan pemindaian tampil secara *real-time* dengan rincian pendeteksi di halaman History/Logs. Termasuk fitur penjadwalan otomatis.
   - Pemasangan **Otomatis**: Skrip `install.sh` dan menu *update* di `toolkit.py` sekarang secara otomatis memverifikasi dan memasang ClamAV di tingkat OS (*unattended*).
   - *Catatan Keamanan*: Fitur *Kill Task* dan modifikasi Firewall dilindungi ketat menggunakan *prompt Master Password* demi mitigasi tindakan keliru atau ancaman keamanan internal.
+- **Docker Backup (FW#2)**: Menambahkan dukungan *backup* untuk *Docker Container* (melalui *export filesystem*) dan *Docker Volume* (melalui *temporary alpine mount*). Antarmuka penambahan sumber telah dirombak menggunakan menu _dropdown_ terpadu.
+- **Ekstensi Notifikasi (Event Triggers)**: Kemampuan untuk mengatur kejadian (*events*) yang akan memicu pengiriman pesan via Email atau Telegram. Pemicu yang ditambahkan:
+  - Laporan Selesai Backup/Restore.
+  - Laporan Selesai Scan Antivirus (beserta jumlah ancaman 🚨).
+  - Peringatan Storage/Disk Lokal Hampir Penuh (>90%).
+- **Validasi Sumber Duplikat**: Mencegah penambahan *file* atau direktori yang sudah ada di dalam sebuah *project* yang sama untuk menghindari redudansi *backup*.
 
 ### Diperbaiki
 - **Pemindaian Ganda**: Proses pemindaian tidak lagi langsung membatalkan seluruh operasi jika salah satu mesin pemindai (*database* YARA) belum diunduh, melainkan melanjutkan pemindaian dengan mesin yang masih tersedia (ClamAV).
