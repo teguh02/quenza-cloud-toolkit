@@ -291,11 +291,17 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
                 msg = "Tidak ditemukan file pada target direktori."
             else:
                 rules = get_yara_rules()
-                if not rules:
+                has_clamav = shutil.which("clamdscan") or shutil.which("clamscan")
+                
+                if not rules and not has_clamav:
                     status = "failed"
-                    msg = "Mesin YARA (aturan deteksi) gagal dimuat."
+                    msg = "Semua mesin antivirus (YARA & ClamAV) tidak tersedia/gagal dimuat."
                 else:
-                    emit(2, f"Memindai {total_files} file...", 20)
+                    active_engines = []
+                    if rules: active_engines.append("YARA")
+                    if has_clamav: active_engines.append("ClamAV")
+                    
+                    emit(2, f"Memindai {total_files} file dengan {' + '.join(active_engines)}...", 20)
                     for i, filepath in enumerate(files_to_scan):
                         if i % max(1, total_files // 20) == 0:
                             pct = 20 + int((i / total_files) * 70)
