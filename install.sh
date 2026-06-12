@@ -374,6 +374,52 @@ check_db_tools() {
 }
 
 # ==============================================================================
+# Security tools (optional)
+# ==============================================================================
+check_security_tools() {
+  CURRENT_STEP="memeriksa tools keamanan (wajib)"
+  if command -v clamscan >/dev/null 2>&1; then
+    log_ok "ClamAV (clamscan) tersedia"
+  else
+    log_info "ClamAV belum terpasang. Memasang ClamAV (wajib untuk fitur keamanan)..."
+    if [ "$OS" = "linux" ] && [ -n "$PKG_MGR" ]; then
+      local pm_rc=0
+      case "$PKG_MGR" in
+        apt-get) { $SUDO apt-get install -y clamav clamav-daemon 2>&1 | _indent_stream; pm_rc=${PIPESTATUS[0]}; } ;;
+        dnf)     { $SUDO dnf install -y clamav clamav-update 2>&1 | _indent_stream; pm_rc=${PIPESTATUS[0]}; } ;;
+        yum)     { $SUDO yum install -y clamav clamav-update 2>&1 | _indent_stream; pm_rc=${PIPESTATUS[0]}; } ;;
+        pacman)  { $SUDO pacman -Sy --noconfirm clamav 2>&1 | _indent_stream; pm_rc=${PIPESTATUS[0]}; } ;;
+        zypper)  { $SUDO zypper install -y clamav 2>&1 | _indent_stream; pm_rc=${PIPESTATUS[0]}; } ;;
+      esac
+
+      if [ "$pm_rc" -ne 0 ]; then
+        log_warn "Package manager mengembalikan error (exit ${pm_rc}) saat memasang ClamAV."
+      fi
+    else
+      log_warn "OS atau Package Manager tidak didukung untuk auto-install ClamAV. Harap pasang manual."
+    fi
+  fi
+
+  # Selalu jalankan freshclam jika tersedia
+  if command -v freshclam >/dev/null 2>&1; then
+    log_info "Mengunduh/Memperbarui database ClamAV (freshclam)..."
+    if [ "$HAS_SYSTEMD" = "1" ] && systemctl is-active --quiet clamav-freshclam; then
+       $SUDO systemctl stop clamav-freshclam >/dev/null 2>&1 || true
+       $SUDO freshclam 2>&1 | _indent_stream || true
+       $SUDO systemctl start clamav-freshclam >/dev/null 2>&1 || true
+    else
+       $SUDO freshclam 2>&1 | _indent_stream || true
+    fi
+  fi
+
+  if command -v clamscan >/dev/null 2>&1; then 
+    log_ok "ClamAV kini siap digunakan."
+  else 
+    log_warn "Pemindaian antivirus tidak maksimal karena ClamAV gagal dipasang."
+  fi
+}
+
+# ==============================================================================
 # Prompts (interactive, with defaults)
 # ==============================================================================
 prompt_inputs() {
@@ -772,6 +818,7 @@ main() {
 
   ensure_python
   check_db_tools
+  check_security_tools
 
   run_step "Mengunduh project" download_project
   run_step "Mengunduh basis data YARA" download_yara_rules

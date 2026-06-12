@@ -4,6 +4,7 @@ import logging
 import shutil
 import uuid
 import json
+import subprocess
 from datetime import datetime, timezone
 
 from app.database import SessionLocal
@@ -80,11 +81,35 @@ def get_yara_rules():
     return _COMPILED_RULES
 
 
+def scan_with_clamav(filepath: str) -> list[str]:
+    """Scan a file using clamscan/clamdscan if available."""
+    scanner_bin = shutil.which("clamdscan") or shutil.which("clamscan")
+    if not scanner_bin:
+        return []
+        
+    try:
+        # --fdpass is useful for clamdscan to bypass permission issues
+        cmd = [scanner_bin, "--no-summary", "--fdpass", filepath] if "clamdscan" in scanner_bin else [scanner_bin, "--no-summary", filepath]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        
+        findings = []
+        if result.returncode == 1:
+            for line in result.stdout.strip().split("\n"):
+                if " FOUND" in line:
+                    parts = line.split(":")
+                    if len(parts) >= 2:
+                        virus_name = parts[1].strip().replace(" FOUND", "")
+                        findings.append(f"ClamAV: {virus_name}")
+        return findings
+    except Exception as exc:
+        logger.debug(f"ClamAV scan failed for {filepath}: {exc}")
+        return []
+
 def scan_file(filepath: str) -> list[str]:
     """Scan a single file and return a list of triggered rule names."""
+    all_triggered = []
+    
     rules = get_yara_rules()
-    if not rules:
-        return []
     
     # Skip very large files (> 50MB) to prevent memory exhaustion
     try:
@@ -93,12 +118,18 @@ def scan_file(filepath: str) -> list[str]:
     except OSError:
         return []
     
-    try:
-        matches = rules.match(filepath, timeout=60)
-        return [match.rule for match in matches]
-    except Exception as exc:
-        logger.debug(f"Failed to scan file {filepath}: {exc}")
-        return []
+    if rules:
+        try:
+            matches = rules.match(filepath, timeout=60)
+            all_triggered.extend([match.rule for match in matches])
+        except Exception as exc:
+            logger.debug(f"Failed to scan file {filepath} with YARA: {exc}")
+            
+    # Add ClamAV scanning
+    clamav_findings = scan_with_clamav(filepath)
+    all_triggered.extend(clamav_findings)
+    
+    return all_triggered
 
 
 def scan_directory(dirpath: str) -> list[dict]:

@@ -22,7 +22,7 @@ Commands:
     backup [project_id]    Run a manual backup
     check-update           Check whether a newer version is available
     update [--yes]         Update from GitHub, reinstall deps, restart service
-    update-yara            Download or update YARA rules database
+    update-av              Download or update YARA & ClamAV rules database
     help                   Show this help
 
 Run inside the project's virtual environment so dependencies are available,
@@ -735,7 +735,41 @@ def _update_via_zip() -> bool:
         _sh.rmtree(tmp, ignore_errors=True)
 
 
-def _update_yara_rules() -> None:
+def _ensure_clamav_installed() -> None:
+    if shutil.which("clamscan"):
+        return
+        
+    info("ClamAV belum terpasang. Memasang ClamAV (wajib untuk keamanan)...")
+    pm_cmds = [
+        ("apt-get", ["apt-get", "install", "-y", "clamav", "clamav-daemon"]),
+        ("dnf", ["dnf", "install", "-y", "clamav", "clamav-update"]),
+        ("yum", ["yum", "install", "-y", "clamav", "clamav-update"]),
+        ("pacman", ["pacman", "-Sy", "--noconfirm", "clamav"]),
+        ("zypper", ["zypper", "install", "-y", "clamav"])
+    ]
+    
+    installed = False
+    for pm, cmd in pm_cmds:
+        if shutil.which(pm):
+            full_cmd = _sudo_prefix() + cmd
+            try:
+                subprocess.run(full_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                installed = True
+                break
+            except Exception:
+                pass
+                
+    if installed:
+        ok("ClamAV berhasil dipasang secara otomatis.")
+    else:
+        warn("Gagal memasang ClamAV secara otomatis. Harap pasang manual.")
+
+
+def _update_antivirus_db() -> None:
+    # 0. Ensure ClamAV is installed
+    _ensure_clamav_installed()
+
+    # 1. Update YARA rules
     rules_dir = os.path.join(ROOT, "app", "data", "yara_rules")
     if os.path.isdir(os.path.join(rules_dir, ".git")):
         info("Memperbarui basis data YARA (git pull)...")
@@ -785,6 +819,26 @@ def _update_yara_rules() -> None:
             warn(f"Gagal memperbarui basis data YARA: {exc}")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+    # 2. Update ClamAV database (if installed)
+    if shutil.which("freshclam"):
+        info("Memperbarui basis data ClamAV (freshclam)...")
+        # Try to use sudo if needed
+        cmd = ["sudo", "freshclam"] if _sudo_prefix() else ["freshclam"]
+        
+        # Stop daemon temporarily if systemd runs clamav-freshclam
+        if _has_systemd_unit():
+            subprocess.run(_sudo_prefix() + ["systemctl", "stop", "clamav-freshclam"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        if r.returncode == 0:
+            ok("Basis data ClamAV diperbarui.")
+        else:
+            warn(f"Gagal memperbarui ClamAV: {r.stdout.strip()[-100:]}")
+            
+        if _has_systemd_unit():
+            subprocess.run(_sudo_prefix() + ["systemctl", "start", "clamav-freshclam"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 
 
 def _pip_install_requirements() -> bool:
@@ -838,8 +892,8 @@ def do_update(assume_yes: bool = False, interactive: bool = True) -> None:
     # Refresh dependencies.
     _pip_install_requirements()
 
-    # Update YARA rules
-    _update_yara_rules()
+    # Update YARA and ClamAV rules
+    _update_antivirus_db()
 
     # Restart the service so the new application code takes effect.
     if assume_yes:
@@ -970,8 +1024,8 @@ def main(argv: list[str]) -> int:
         elif cmd == "update":
             assume_yes = ("--yes" in rest) or ("-y" in rest)
             do_update(assume_yes=assume_yes, interactive=not assume_yes)
-        elif cmd == "update-yara":
-            _update_yara_rules()
+        elif cmd in ("update-yara", "update-av"):
+            _update_antivirus_db()
         else:
             err(f"Perintah tidak dikenal: {cmd}")
             _print_help()
