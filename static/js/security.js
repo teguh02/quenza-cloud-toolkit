@@ -97,6 +97,7 @@
         return;
       }
       renderData(res.data);
+      runAIAudit(state.currentTab);
     }).catch(function(e) {
       content.innerHTML = '<div class="text-sm text-red-500 p-4">Kesalahan jaringan: ' + e + '</div>';
     }).finally(function() {
@@ -114,8 +115,10 @@
     var content = $("tab-content");
     content.innerHTML = "";
 
+    var aiHtml = '<div id="ai-container" class="mb-6 hidden"></div>';
+
     if (state.currentTab === "system") {
-      var html = '<div class="space-y-6">';
+      var html = aiHtml + '<div class="space-y-6">';
       
       // Basic OS Info
       html += '<div class="grid grid-cols-2 gap-4"><div class="rounded-xl border border-line bg-canvas/30 p-4"><p class="text-xs text-secondary mb-1">OS</p><p class="font-bold text-heading">' + escapeHtml(data.os) + ' ' + escapeHtml(data.release) + '</p></div>';
@@ -143,7 +146,7 @@
       content.innerHTML = html;
     } 
     else if (state.currentTab === "processes") {
-      var table = '<div class="w-full overflow-x-auto rounded-xl border border-line"><table class="w-full text-left text-sm"><thead class="text-xs uppercase tracking-wider text-label border-b border-line bg-canvas/80"><tr><th class="px-4 py-3">PID</th><th class="px-4 py-3">Name</th><th class="px-4 py-3">User</th><th class="px-4 py-3">CPU %</th><th class="px-4 py-3">RAM %</th><th class="px-4 py-3 text-right">Aksi</th></tr></thead><tbody class="divide-y divide-line">';
+      var table = aiHtml + '<div class="w-full overflow-x-auto rounded-xl border border-line"><table class="w-full text-left text-sm"><thead class="text-xs uppercase tracking-wider text-label border-b border-line bg-canvas/80"><tr><th class="px-4 py-3">PID</th><th class="px-4 py-3">Name</th><th class="px-4 py-3">User</th><th class="px-4 py-3">CPU %</th><th class="px-4 py-3">RAM %</th><th class="px-4 py-3 text-right">Aksi</th></tr></thead><tbody class="divide-y divide-line">';
       var iconKill = '<svg class="w-4 h-4 block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
       data.forEach(function(p) {
         table += '<tr class="hover:bg-canvas/30 transition-colors"><td class="px-4 py-3 font-mono text-secondary">' + p.pid + '</td><td class="px-4 py-3 font-bold text-heading">' + escapeHtml(p.name) + '</td><td class="px-4 py-3 text-secondary">' + escapeHtml(p.user) + '</td><td class="px-4 py-3">' + p.cpu + '%</td><td class="px-4 py-3">' + p.ram + '%</td>';
@@ -156,19 +159,18 @@
       var btnAdd = $("btn-add-rule");
       if (data.length === 1 && data[0].raw && data[0].raw.toLowerCase().indexOf("status: inactive") !== -1) {
           if (btnAdd) btnAdd.classList.add("hidden");
-          var msg = '<div class="flex flex-col items-center justify-center text-center p-8 bg-canvas/30 rounded-2xl border border-line h-64">';
+          var msg = aiHtml + '<div class="flex flex-col items-center justify-center text-center p-8 bg-canvas/30 rounded-2xl border border-line h-64">';
           msg += '<svg class="w-12 h-12 text-secondary mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>';
-          msg += '<p class="text-sm font-bold text-heading mb-2">Firewall Tidak Aktif</p>';
-          msg += '<p class="text-xs text-secondary max-w-md">Untuk menggunakan fitur Firewall Manager, Anda harus mengaktifkannya di server Anda terlebih dahulu. Jalankan perintah <code class="bg-surface px-1 py-0.5 rounded font-mono border border-line">sudo ufw enable</code> di terminal.</p>';
-          msg += '</div>';
+          msg += '<h3 class="text-lg font-bold text-heading">Firewall Tidak Aktif</h3><p class="text-sm text-secondary mt-1">Sistem firewall (UFW/Windows Firewall) terdeteksi nonaktif.</p></div>';
           content.innerHTML = msg;
           return;
       }
       
       if (btnAdd) btnAdd.classList.remove("hidden");
+      var html = aiHtml + '<div class="space-y-4">';
 
       if (data.length === 0) {
-         content.innerHTML = '<div class="flex h-full items-center justify-center text-sm text-label p-4">Tidak ada aturan firewall terbaca.</div>';
+         content.innerHTML = html + '<div class="flex h-full items-center justify-center text-sm text-label p-4">Tidak ada aturan firewall terbaca.</div>';
          return;
       }
       var list = el("div", "space-y-2");
@@ -185,14 +187,17 @@
       var note = el("div", "mb-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4");
       note.innerHTML = '<h3 class="text-sm font-bold text-blue-800 mb-1">Catatan Firewall</h3><p class="text-xs text-blue-700 leading-relaxed">Fitur hapus (Delete Rule) via UI ini hanya dapat menghapus rules spesifik yang memiliki penamaan "Quenza". Rule bawaan OS lainnya tidak akan terpengaruh demi keselamatan server.</p>';
       
-      content.appendChild(note);
-      content.appendChild(list);
+      var wrapper = el("div");
+      wrapper.innerHTML = html;
+      wrapper.appendChild(note);
+      wrapper.appendChild(list);
 
       if (hasUfwError) {
           var btnHelp = el("div", "mt-6 text-center");
           btnHelp.innerHTML = '<a href="/help#ufw-permissions" class="inline-flex items-center gap-2 rounded-xl bg-brand-teal px-5 py-2.5 text-sm font-bold text-white shadow-card hover:bg-brand-teal/90 transition-all"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> Solusi: Error Permission UFW</a>';
-          content.appendChild(btnHelp);
+          wrapper.appendChild(btnHelp);
       }
+      content.appendChild(wrapper);
     }
     else if (state.currentTab === "antivirus") {
       var conf = data.config;
@@ -359,7 +364,7 @@
       renderAvTargets();
     }
     else if (state.currentTab === "osscheduler") {
-      var html = '<div class="space-y-6">';
+      var html = aiHtml + '<div class="space-y-6">';
       
       var note = el("div", "rounded-xl border border-blue-100 bg-blue-50/50 p-4");
       note.innerHTML = '<h3 class="text-sm font-bold text-blue-800 mb-1">Catatan OS Scheduler</h3><p class="text-xs text-blue-700 leading-relaxed">Kelola tugas terjadwal tingkat sistem operasi. Menghapus tugas sistem dapat berakibat fatal. Demi keamanan, Anda disarankan hanya menghapus tugas yang sengaja Anda buat (biasanya dengan prefix <code class="bg-blue-100 px-1 py-0.5 rounded font-mono">Quenza_</code>).</p>';
@@ -570,6 +575,58 @@
       }).catch(function(e) {
           alert("Error: " + e);
       });
+  }
+
+  function runAIAudit(tab) {
+    if (tab === "antivirus") return; // Di-handle terpisah nanti
+    
+    var aiContainer = $("ai-container");
+    if (!aiContainer) return;
+    
+    aiContainer.classList.remove("hidden");
+    aiContainer.innerHTML = '<div class="flex items-center gap-3 rounded-2xl border border-purple-200 bg-purple-50 p-4 shadow-sm"><svg class="h-5 w-5 animate-spin text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg><p class="text-sm font-semibold text-purple-800">AI sedang menganalisis data...</p></div>';
+
+    var aiUrl = "/api/security/ai/" + tab;
+    apiGet(aiUrl).then(function(res) {
+        if (!res.ok) {
+            if (res.error === "AI dinonaktifkan.") {
+                aiContainer.classList.add("hidden");
+                return;
+            }
+            aiContainer.innerHTML = '<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">Gagal memuat rekomendasi AI: ' + escapeHtml(res.error) + '</div>';
+            return;
+        }
+        
+        var aiIcon = '<svg class="h-5 w-5 shrink-0 text-purple-600 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+        var outHtml = '<div class="flex items-start gap-4 rounded-3xl border border-purple-200 bg-gradient-to-br from-purple-50 to-white p-5 shadow-card">';
+        outHtml += '<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 shadow-sm">' + aiIcon + '</div>';
+        outHtml += '<div class="min-w-0 flex-1"><h3 class="text-sm font-bold text-purple-900 mb-2">Quenza AI Advisor</h3>';
+        
+        if (tab === "processes") {
+            try {
+                var aiDataStr = res.data.replace(/```json/g, "").replace(/```/g, "").trim();
+                var aiData = JSON.parse(aiDataStr);
+                var tableRows = "";
+                aiData.forEach(function(item) {
+                    var badgeClass = item.flag === "Safe" ? "bg-green-100 text-green-700" : (item.flag === "Suspicious" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700");
+                    tableRows += '<tr class="border-b border-purple-100 last:border-0"><td class="py-2.5 pr-3 font-mono text-xs text-purple-800">' + item.pid + '</td><td class="py-2.5 pr-3"><span class="inline-block rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ' + badgeClass + '">' + escapeHtml(item.flag) + '</span></td><td class="py-2.5 text-xs text-purple-700">' + escapeHtml(item.reason) + '</td></tr>';
+                });
+                if (tableRows === "") {
+                    outHtml += '<p class="text-sm text-purple-800 leading-relaxed">Semua proses tampak normal. Tidak ada aktivitas mencurigakan.</p>';
+                } else {
+                    outHtml += '<div class="w-full overflow-x-auto rounded-xl border border-purple-200 bg-white/50 px-2 mt-2"><table class="w-full text-left"><tbody class="divide-y divide-purple-100">' + tableRows + '</tbody></table></div>';
+                }
+            } catch(e) {
+                outHtml += '<p class="text-sm text-purple-800 leading-relaxed whitespace-pre-wrap mt-2">' + escapeHtml(res.data) + '</p>';
+            }
+        } else {
+            outHtml += '<p class="text-sm text-purple-800 leading-relaxed whitespace-pre-wrap mt-2">' + escapeHtml(res.data) + '</p>';
+        }
+        outHtml += '</div></div>';
+        aiContainer.innerHTML = outHtml;
+    }).catch(function(e) {
+        aiContainer.innerHTML = '<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">Kesalahan jaringan AI: ' + e + '</div>';
+    });
   }
 
   window.SecurityMgmt = {

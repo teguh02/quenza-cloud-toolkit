@@ -6,7 +6,7 @@ from pydantic import BaseModel
 import json
 
 from app.auth import require_api_auth, require_login, verify_password
-from app.services import security_service, scanner_service
+from app.services import security_service, scanner_service, ai_service
 from app.database import get_db
 from sqlalchemy.orm import Session
 from app.models import AppSetting, QuarantineLog
@@ -289,3 +289,56 @@ async def api_os_scheduler_action(
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
+# --- AI Endpoints ---
+
+@router.get("/api/security/ai/system")
+async def api_ai_system(_auth: None = Depends(require_api_auth)):
+    if not ai_service.is_ai_enabled():
+        return {"ok": False, "error": "AI dinonaktifkan."}
+    
+    data = security_service.get_system_info()
+    dev_prompt = "Anda adalah pakar keamanan IT (Security Expert). Berikan analisis performa dan rekomendasi optimalisasi ringkas (RAM, CPU, Disk) dalam Bahasa Indonesia berdasarkan data JSON berikut."
+    resp = await ai_service.ask_ai(dev_prompt, json.dumps(data), effort="low")
+    return {"ok": True, "data": resp}
+
+
+@router.get("/api/security/ai/processes")
+async def api_ai_processes(_auth: None = Depends(require_api_auth)):
+    if not ai_service.is_ai_enabled():
+        return {"ok": False, "error": "AI dinonaktifkan."}
+    
+    data = security_service.get_top_processes()
+    dev_prompt = (
+        "Anda adalah pakar keamanan IT. Analisis daftar proses ini. "
+        "Kembalikan respon DALAM FORMAT JSON SAJA, berupa list/array of object dengan field: "
+        "'pid' (number), 'flag' (string: 'Safe', 'Suspicious', atau 'Resource Heavy'), dan 'reason' (alasan ringkas max 2 kalimat dalam bahasa Indonesia). "
+        "Hanya sertakan proses yang 'Suspicious' atau 'Resource Heavy'."
+    )
+    short_data = [{"pid": d["pid"], "name": d["name"], "cpu": d["cpu_percent"], "ram": d["memory_mb"], "cmd": d.get("cmdline")} for d in data[:50]]
+    resp = await ai_service.ask_ai(dev_prompt, json.dumps(short_data), effort="medium")
+    return {"ok": True, "data": resp}
+
+
+@router.get("/api/security/ai/firewall")
+async def api_ai_firewall(_auth: None = Depends(require_api_auth)):
+    if not ai_service.is_ai_enabled():
+        return {"ok": False, "error": "AI dinonaktifkan."}
+    
+    adapter = security_service.get_firewall_adapter()
+    data = adapter.get_rules()
+    dev_prompt = "Anda adalah pakar keamanan IT. Audit aturan firewall ini. Rekomendasikan port apa yang berbahaya dan perlu diblock, atau aturan dasar apa yang kurang dalam bentuk poin-poin singkat (Bahasa Indonesia)."
+    resp = await ai_service.ask_ai(dev_prompt, json.dumps(data), effort="low")
+    return {"ok": True, "data": resp}
+
+
+@router.get("/api/security/ai/osscheduler")
+async def api_ai_osscheduler(_auth: None = Depends(require_api_auth)):
+    if not ai_service.is_ai_enabled():
+        return {"ok": False, "error": "AI dinonaktifkan."}
+    
+    adapter = security_service.get_os_scheduler_adapter()
+    data = adapter.get_tasks()
+    dev_prompt = "Anda adalah pakar keamanan IT. Audit sebagian daftar OS Task/Cron ini. Identifikasi apakah ada tugas yang berpotensi malware (persistence mechanism) atau memberi tips keamanan ringkas (Bahasa Indonesia)."
+    short_data = data[:100]
+    resp = await ai_service.ask_ai(dev_prompt, json.dumps(short_data), effort="medium")
+    return {"ok": True, "data": resp}

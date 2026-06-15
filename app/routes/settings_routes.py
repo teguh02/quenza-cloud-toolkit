@@ -34,6 +34,7 @@ async def settings_page(
 
     notif = settings_service.get_notification_config()
     scheduler_health = scheduler_health_service.get_health_status(db)
+    ai_config = settings_service.get_ai_config()
 
     return templates.TemplateResponse(
         request,
@@ -51,6 +52,7 @@ async def settings_page(
             "scheduler_health": scheduler_health,
             "flash": request.query_params.get("msg"),
             "flash_type": request.query_params.get("type", "success"),
+            "ai_config": ai_config,
         },
     )
 
@@ -80,6 +82,30 @@ async def settings_general(
         pass
 
     return _redirect("/settings", msg="Zona waktu disimpan.")
+
+
+@router.post("/ai", name="settings_ai", response_model=None)
+async def settings_ai(
+    request: Request,
+    ai_api_key: str = Form(""),
+    ai_enabled: str = Form(""),
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    """Save the AI configuration."""
+    guard = require_login(request)
+    if guard is not None:
+        return guard
+
+    try:
+        settings_service.save_ai_config(
+            db=db,
+            api_key=ai_api_key,
+            enabled=bool(ai_enabled),
+        )
+    except ValueError as exc:
+        return _redirect("/settings", msg=str(exc), type="error")
+
+    return _redirect("/settings", msg="Pengaturan AI disimpan.")
 
 
 @router.post("/notifications", name="settings_notifications", response_model=None)

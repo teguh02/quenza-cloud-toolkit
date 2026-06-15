@@ -30,6 +30,8 @@ KEY_NOTIFY_EVENTS = "notify_events"        # JSON: {"backup": true, "scan": fals
 KEY_SMTP = "smtp"                          # JSON: host, port, user, password(enc), from_addr, use_tls
 KEY_EMAIL_RECIPIENTS = "email_recipients"  # JSON list[str]
 KEY_TELEGRAM = "telegram"                  # JSON: token(enc), chat_id
+KEY_OPENAI_API_KEY = "openai_api_key"      # enc
+KEY_AI_ENABLED = "ai_enabled"              # string "1" or "0"
 
 DEFAULT_TIMEZONE = "Asia/Jakarta"
 MAX_RECIPIENTS = 3
@@ -169,9 +171,14 @@ class TelegramConfig:
     token: str = ""          # plaintext in-memory; encrypted at rest
     chat_id: str = ""
 
+@dataclass
+class AiConfig:
+    api_key: str = ""       # plaintext in-memory; encrypted at rest
+    enabled: bool = False
+
     @property
     def is_complete(self) -> bool:
-        return bool(self.token and self.chat_id)
+        return bool(self.api_key)
 
 
 @dataclass
@@ -237,6 +244,15 @@ def get_notification_config() -> NotificationConfig:
     cfg.telegram = TelegramConfig(
         token=_decrypt_safe(tg_raw.get("token", "")) if tg_raw.get("token") else "",
         chat_id=tg_raw.get("chat_id", ""),
+    )
+    return cfg
+
+
+def get_ai_config() -> AiConfig:
+    """Build the current AiConfig from stored settings."""
+    cfg = AiConfig(
+        api_key=_decrypt_safe(_get_raw(KEY_OPENAI_API_KEY, "")),
+        enabled=_get_raw(KEY_AI_ENABLED, "0") == "1",
     )
     return cfg
 
@@ -366,6 +382,41 @@ def save_notifications(
         "health": bool(notify_on_health),
     }
     _set_raw(db, KEY_NOTIFY_EVENTS, json.dumps(events_obj, ensure_ascii=False))
+
+    db.commit()
+    invalidate_cache()
+
+
+def save_ai_config(
+    db: Session,
+    api_key: str,
+    enabled: bool,
+    keep_existing_secrets: bool = True,
+) -> None:
+    """Save the AI configuration.
+    
+    Args:
+        db: Database session.
+        api_key: The OpenAI API Key.
+        enabled: Whether AI features are enabled.
+        keep_existing_secrets: If True and api_key is empty, keep existing.
+    """
+    existing = get_ai_config()
+    
+    key_to_save = api_key.strip()
+    if not key_to_save and keep_existing_secrets:
+        key_to_save = existing.api_key
+        
+    if key_to_save:
+        try:
+            encrypted_key = crypto.encrypt(key_to_save)
+        except crypto.CryptoNotConfigured as exc:
+            raise ValueError(str(exc)) from exc
+    else:
+        encrypted_key = ""
+
+    _set_raw(db, KEY_OPENAI_API_KEY, encrypted_key)
+    _set_raw(db, KEY_AI_ENABLED, "1" if enabled else "0")
 
     db.commit()
     invalidate_cache()

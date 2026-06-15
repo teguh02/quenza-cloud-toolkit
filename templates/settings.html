@@ -80,6 +80,53 @@
     </div>
   </section>
 
+  {# ============== KONFIGURASI AI ============== #}
+  <section class="rounded-3xl border border-line bg-surface p-6 shadow-card">
+    <div class="flex items-start gap-4">
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+      <div class="min-w-0 flex-1">
+        <h2 class="text-base font-bold text-heading">Konfigurasi Artificial Intelligence</h2>
+        <p class="mt-0.5 text-xs text-secondary">Pengaturan model kecerdasan buatan (OpenAI GPT-5.5) untuk memberikan saran keamanan cerdas.</p>
+
+        {% if not crypto_ready %}
+        <div class="mt-4 flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+          <svg class="mt-0.5 h-4 w-4 shrink-0 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <p class="text-xs text-amber-700"><span class="font-semibold">ENCRYPTION_KEY</span> belum diatur. API Key disimpan terenkripsi, setel <span class="font-mono">ENCRYPTION_KEY</span> di <span class="font-mono">.env</span> terlebih dahulu.</p>
+        </div>
+        {% endif %}
+
+        <form method="post" action="/settings/ai" class="mt-4 space-y-5">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="sm:col-span-2">
+              <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">OpenAI API Key {% if ai_config.api_key %}<span class="font-normal normal-case text-label">(terisi — kosongkan jika tak diubah)</span>{% endif %}</label>
+              <input name="ai_api_key" type="password" placeholder="sk-..."
+                class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+            </div>
+            
+            <div class="sm:col-span-2 flex items-center justify-between rounded-xl border border-line bg-canvas px-4 py-3">
+              <div>
+                <p class="text-sm font-semibold text-heading">Aktifkan Fitur AI</p>
+                <p class="text-xs text-secondary">Jika diaktifkan, AI otomatis berjalan di background pada modul Security.</p>
+              </div>
+              <label class="relative inline-flex cursor-pointer items-center">
+                <input type="checkbox" name="ai_enabled" value="1" class="peer sr-only" {% if ai_config.enabled %}checked{% endif %}>
+                <div class="h-6 w-11 rounded-full bg-slate-200 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-teal peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-teal/50 rtl:peer-checked:after:-translate-x-full"></div>
+              </label>
+            </div>
+          </div>
+          
+          <div class="flex justify-end pt-2">
+            <button type="submit" class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
+              Simpan Pengaturan AI
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
   {# ============== NOTIFIKASI ============== #}
   <section class="rounded-3xl border border-line bg-surface p-6 shadow-card">
     <div class="flex items-start gap-4">
@@ -112,39 +159,12 @@
             </div>
           </div>
 
-          {# Notify on (when channel != none) #}
-          <div id="notif-on-wrap" class="space-y-4" {% if notif.channel == 'none' %}style="display:none"{% endif %}>
-            <div>
-              <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Filter Status Backup/Restore</label>
-              <select name="notify_on"
-                class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25">
-                <option value="all" {{ "selected" if notif.notify_on == "all" }}>Semua hasil (sukses, sebagian, gagal)</option>
-                <option value="failed" {{ "selected" if notif.notify_on == "failed" }}>Hanya gagal / sebagian</option>
-              </select>
-            </div>
-            
-            <div>
-              <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Kejadian (Event) Notifikasi</label>
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <label class="flex items-center gap-3 rounded-xl border border-line bg-canvas px-4 py-3 cursor-pointer transition-colors hover:border-brand-teal/50">
-                  <input type="checkbox" name="notify_on_backup" value="1" class="h-4 w-4 rounded accent-brand-teal" {% if notif.notify_events.backup %}checked{% endif %}>
-                  <span class="text-sm font-semibold text-heading">Selesai Backup</span>
-                </label>
-                <label class="flex items-center gap-3 rounded-xl border border-line bg-canvas px-4 py-3 cursor-pointer transition-colors hover:border-brand-teal/50">
-                  <input type="checkbox" name="notify_on_scan" value="1" class="h-4 w-4 rounded accent-brand-teal" {% if notif.notify_events.scan %}checked{% endif %}>
-                  <span class="text-sm font-semibold text-heading">Selesai Scan AV</span>
-                </label>
-                <label class="flex items-center gap-3 rounded-xl border border-line bg-canvas px-4 py-3 cursor-pointer transition-colors hover:border-brand-teal/50">
-                  <input type="checkbox" name="notify_on_disk" value="1" class="h-4 w-4 rounded accent-brand-teal" {% if notif.notify_events.disk %}checked{% endif %}>
-                  <span class="text-sm font-semibold text-heading">Disk > 90%</span>
-                </label>
-                <label class="flex items-center gap-3 rounded-xl border border-line bg-canvas px-4 py-3 cursor-pointer transition-colors hover:border-brand-teal/50">
-                  <input type="checkbox" name="notify_on_health" value="1" class="h-4 w-4 rounded accent-brand-teal" {% if notif.notify_events.health %}checked{% endif %}>
-                  <span class="text-sm font-semibold text-heading">Sistem Bermasalah</span>
-                </label>
-              </div>
-            </div>
-          </div>
+          {# Hidden fields for notification events (forced default to all by user request) #}
+          <input type="hidden" name="notify_on" value="all">
+          <input type="hidden" name="notify_on_backup" value="1">
+          <input type="hidden" name="notify_on_scan" value="1">
+          <input type="hidden" name="notify_on_disk" value="1">
+          <input type="hidden" name="notify_on_health" value="1">
 
           {# ===== EMAIL fields ===== #}
           <div id="channel-email" class="space-y-4" {% if notif.channel != 'email' %}style="display:none"{% endif %}>
