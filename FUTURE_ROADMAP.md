@@ -23,7 +23,13 @@ Diperlukan dataset berupa pasangan *source code* dan label bahaya/aman.
     *   `label = 0` (Safe / Normal Code)
 *   **Jumlah (Minimum Viable Product):** ~1.000 sampel virus dan 1.000 sampel kode aman.
 *   **Jumlah Ideal:** 5.000 hingga 10.000 per kelas (seimbang 50:50).
-*   **Sumber Data:** Repositori Github publik seperti `tennc/webshell` dan inti kode *framework* (WordPress, Laravel) untuk label aman.
+*   **Sumber Data (Label 1 - Malicious):** 
+    *   Mencari *repository* arsip *webshell* di GitHub (contoh: `tennc/webshell`, `backdoor-shell`, `JohnTroony/php-webshells`).
+    *   Mengambil *source code* dari GitHub Gist hasil pencarian *hacker* (seperti pencarian "github php backdoor", "magic include shell", dll).
+    *   Mengambil sampel dari basis data *malware* terbuka (seperti *MalwareBazaar* atau *VirusTotal*).
+*   **Sumber Data (Label 0 - Safe):** 
+    *   Mengunduh *source code* murni dari rilis resmi *framework* (misal: repositori GitHub WordPress, Laravel, CodeIgniter, Express.js).
+    *   Skrip-skrip utilitas umum yang ada di GitHub.
 
 #### B. Pemilihan Model (HuggingFace)
 Jangan menggunakan *Large Language Model* (LLM) generasi generik karena berat. Gunakan arsitektur *Encoder-only* yang lebih kecil, cepat, dan spesialis untuk membaca konteks teks/kode:
@@ -41,6 +47,23 @@ Jangan menggunakan *Large Language Model* (LLM) generasi generik karena berat. G
 1. Tambahkan dependensi `transformers` atau `onnxruntime` ke *environment* Quenza.
 2. Buat *class* adapter baru di `app/services/local_ai_service.py` untuk memuat model lokal.
 3. Modifikasi pengaturan UI agar pengguna bisa memilih **"AI Engine: OpenAI (Cloud)"** atau **"AI Engine: CodeBERT (Local)"**.
+
+### E. Alur Kerja (Workflow) AI Lokal
+Saat AI Lokal telah terintegrasi penuh, alur kerjanya akan beroperasi dalam 3 tahapan (berjalan murni di memori server tanpa internet):
+
+**1. Tahap Input (Masukan)**
+*   Sistem membaca isi mentah (*source code*) dari file yang dicurigai (misal: `config.php`).
+*   Teks kode dimasukkan ke **HuggingFace Tokenizer** untuk dipecah dan diterjemahkan menjadi deretan angka matematika (vektor) agar bisa dipahami oleh AI.
+
+**2. Tahap Proses (Inferensi / Analisis)**
+*   Vektor angka dimasukkan ke dalam model bahasa lokal (contoh: *CodeBERT*).
+*   *Neural Network* melakukan pemahaman secara semantik (*Semantic Understanding*), bukan sekadar mencocokkan kata. AI mencoba mengenali pola pikir/niat terselubung di balik kode tersebut.
+*   Model mengkalkulasi probabilitas skor ancaman (contoh: 2% Aman, 98% Virus).
+
+**3. Tahap Output (Keluaran & Tindakan)**
+*   Jika skor bahaya melebihi ambang batas (misal > 80%), AI mengeluarkan vonis **Malicious (1)**.
+*   Quenza langsung bereaksi dengan memicu fungsi karantina: mengenkripsi file menjadi format ZIP yang terkunci sandi dan memindahkannya ke *vault* isolasi.
+*   Log dicatat dan notifikasi darurat (*alert*) dikirimkan ke administrator via Telegram/Email.
 
 ### Contoh Struktur Dataset (CSV)
 Berikut adalah gambaran fisik (contoh 20 baris pertama) dari dataset berformat CSV yang dibutuhkan untuk *fine-tuning*. Kolom `text` berisi *source code* murni, dan `label` berisi `1` (Virus/Bahaya) atau `0` (Aman).
