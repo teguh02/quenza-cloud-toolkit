@@ -84,8 +84,38 @@ async def api_get_antivirus(db: Session = Depends(get_db), _auth: None = Depends
                 "status": lg.status,
                 "created_at": lg.created_at.isoformat() if lg.created_at else ""
             })
-            
-        return {"ok": True, "data": {"config": config, "logs": logs}}
+
+        # Antivirus health check
+        from app.services import av_health_service
+        health = av_health_service.get_health_status(db)
+        health_data = {
+            "is_healthy": health.is_healthy,
+            "av_enabled": health.av_enabled,
+            "any_engine_available": health.any_engine_available,
+            "engines": [
+                {"name": e.name, "available": e.available, "detail": e.detail}
+                for e in health.engines
+            ],
+            "targets_configured": health.targets_configured,
+            "targets_accessible": health.targets_accessible,
+            "inaccessible_targets": health.inaccessible_targets,
+            "yara_rules_count": health.yara_rules_count,
+            "quarantine_count": health.quarantine_count,
+            "last_scan": None,
+            "alerts": health.alerts,
+            "warnings": health.warnings,
+        }
+        if health.last_scan:
+            health_data["last_scan"] = {
+                "ran_at": health.last_scan.ran_at.isoformat() if health.last_scan.ran_at else None,
+                "status": health.last_scan.status,
+                "files_scanned": health.last_scan.files_scanned,
+                "threats_found": health.last_scan.threats_found,
+                "duration_ms": health.last_scan.duration_ms,
+                "hours_ago": health.last_scan.hours_ago,
+            }
+
+        return {"ok": True, "data": {"config": config, "logs": logs, "health": health_data}}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

@@ -23,9 +23,13 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
   - Laporan Selesai Scan Antivirus (beserta jumlah ancaman 🚨).
   - Peringatan Storage/Disk Lokal Hampir Penuh (>90%).
 - **Validasi Sumber Duplikat**: Mencegah penambahan *file* atau direktori yang sudah ada di dalam sebuah *project* yang sama untuk menghindari redudansi *backup*.
+- **Monitoring Kesehatan Scheduler**: Sistem pemantauan proaktif yang mendeteksi apakah APScheduler aktif, apakah semua jadwal terdaftar, dan apakah ada jadwal yang terlewat (threshold 10 menit). Banner peringatan otomatis ditampilkan di halaman **Dashboard** dan **Settings** jika terdeteksi masalah.
+- **Monitoring Kesehatan Antivirus**: Dashboard kesehatan khusus untuk modul Antivirus & Scanner. Memeriksa ketersediaan engine (ClamAV & YARA), status kompilasi rules, target direktori yang tidak dapat diakses, dan statistik karantina.
 
 ### Diperbaiki
 - **Pemindaian Ganda**: Proses pemindaian tidak lagi langsung membatalkan seluruh operasi jika salah satu mesin pemindai (*database* YARA) belum diunduh, melainkan melanjutkan pemindaian dengan mesin yang masih tersedia (ClamAV).
+- **Waktu jadwal backup ganda (*double timezone offset*)**: Waktu `next_run_at` dari APScheduler kini dinormalisasi ke UTC sebelum disimpan ke database, mencegah tampilan waktu yang salah (misal 00:00 WIB menjadi 07:00) di halaman Schedules.
+- **Card "Next Scheduled Backup" di Dashboard menampilkan tanggal basi**: `next_run_at` kini di-*refresh* secara otomatis setiap kali job selesai dieksekusi melalui listener `EVENT_JOB_EXECUTED`. Card juga hanya menampilkan jadwal yang masih akan datang dan mengonversi waktu ke zona waktu lokal.
 
 ---
 

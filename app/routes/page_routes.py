@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_login
 from app.database import get_db
-from app.services import dashboard_service, schedule_service
+from app.services import dashboard_service, schedule_service, scheduler_health_service
 from app.templating import templates
 
 router = APIRouter()
@@ -30,6 +30,7 @@ async def dashboard(
 
     trend_7 = dashboard_service.get_backup_trend(db, 7)
     trend_30 = dashboard_service.get_backup_trend(db, 30)
+    scheduler_health = scheduler_health_service.get_health_status(db)
 
     return templates.TemplateResponse(
         request,
@@ -43,6 +44,7 @@ async def dashboard(
             "activity": dashboard_service.get_recent_activity(db),
             "trend_7": trend_7,
             "trend_30": trend_30,
+            "scheduler_health": scheduler_health,
         },
     )
 

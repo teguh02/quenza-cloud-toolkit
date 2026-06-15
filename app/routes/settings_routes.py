@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_login
 from app.database import get_db
-from app.services import crypto, notification_service, settings_service
+from app.services import crypto, notification_service, scheduler_health_service, settings_service
 from app.templating import templates
 
 router = APIRouter(prefix="/settings")
@@ -33,6 +33,7 @@ async def settings_page(
         return guard
 
     notif = settings_service.get_notification_config()
+    scheduler_health = scheduler_health_service.get_health_status(db)
 
     return templates.TemplateResponse(
         request,
@@ -47,6 +48,7 @@ async def settings_page(
             "notif": notif,
             "max_recipients": settings_service.MAX_RECIPIENTS,
             "crypto_ready": crypto.is_configured(),
+            "scheduler_health": scheduler_health,
             "flash": request.query_params.get("msg"),
             "flash_type": request.query_params.get("type", "success"),
         },

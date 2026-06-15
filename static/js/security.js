@@ -189,8 +189,96 @@
     else if (state.currentTab === "antivirus") {
       var conf = data.config;
       var logs = data.logs;
+      var hlt = data.health || {};
       
       var html = '<div class="space-y-6">';
+
+      // ===================== AV HEALTH DASHBOARD =====================
+      html += '<div class="space-y-4">';
+
+      // Critical alerts (red)
+      if (hlt.alerts && hlt.alerts.length > 0) {
+        html += '<div class="flex items-start gap-4 rounded-2xl border border-red-200 bg-red-50 p-4">';
+        html += '<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">';
+        html += '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+        html += '</div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-red-900">Peringatan Kritis</p><ul class="mt-1.5 space-y-1">';
+        hlt.alerts.forEach(function(a) {
+          html += '<li class="flex items-start gap-2 text-xs text-red-800"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-red-400"></span>' + escapeHtml(a) + '</li>';
+        });
+        html += '</ul></div></div>';
+      }
+
+      // Warnings (amber)
+      if (hlt.warnings && hlt.warnings.length > 0) {
+        html += '<div class="flex items-start gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">';
+        html += '<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">';
+        html += '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+        html += '</div><div class="min-w-0 flex-1"><p class="text-sm font-bold text-amber-900">Perhatian</p><ul class="mt-1.5 space-y-1">';
+        hlt.warnings.forEach(function(w) {
+          html += '<li class="flex items-start gap-2 text-xs text-amber-800"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400"></span>' + escapeHtml(w) + '</li>';
+        });
+        html += '</ul></div></div>';
+      }
+
+      // Engine status cards
+      if (hlt.engines && hlt.engines.length > 0) {
+        html += '<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">';
+        hlt.engines.forEach(function(eng) {
+          var borderColor = eng.available ? 'border-emerald-200' : 'border-red-200';
+          var bgColor = eng.available ? 'bg-emerald-50/50' : 'bg-red-50/50';
+          var dotColor = eng.available ? 'bg-emerald-500' : 'bg-red-400';
+          var statusText = eng.available ? 'Tersedia' : 'Tidak Tersedia';
+          var statusColor = eng.available ? 'text-emerald-700' : 'text-red-600';
+
+          html += '<div class="rounded-xl border ' + borderColor + ' ' + bgColor + ' p-4">';
+          html += '<div class="flex items-center gap-3 mb-2">';
+          html += '<span class="relative flex h-3 w-3">';
+          if (eng.available) {
+            html += '<span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>';
+          }
+          html += '<span class="relative inline-flex h-3 w-3 rounded-full ' + dotColor + '"></span></span>';
+          html += '<span class="text-sm font-bold text-heading">' + escapeHtml(eng.name) + '</span>';
+          html += '<span class="ml-auto text-xs font-semibold ' + statusColor + '">' + statusText + '</span>';
+          html += '</div>';
+          html += '<p class="text-xs text-secondary pl-6">' + escapeHtml(eng.detail) + '</p>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+
+      // Stats row: last scan + quarantine + targets
+      html += '<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">';
+
+      // Last scan stat
+      var scanLabel = '-';
+      var scanSub = 'Belum pernah scan';
+      if (hlt.last_scan) {
+        var ls = hlt.last_scan;
+        if (ls.hours_ago < 1) scanLabel = '<1 jam';
+        else if (ls.hours_ago < 24) scanLabel = Math.round(ls.hours_ago) + ' jam';
+        else scanLabel = Math.round(ls.hours_ago / 24) + ' hari';
+        scanLabel += ' lalu';
+        scanSub = ls.files_scanned + ' file, ' + (ls.duration_ms / 1000).toFixed(1) + 's';
+        if (ls.status === 'failed') scanSub = '⚠ ' + ls.threats_found + ' ancaman ditemukan';
+      }
+      html += '<div class="rounded-xl border border-line bg-canvas/30 p-4 text-center"><p class="text-lg font-extrabold text-heading">' + scanLabel + '</p><p class="mt-1 text-[11px] text-secondary">Scan Terakhir</p><p class="text-[10px] text-label">' + scanSub + '</p></div>';
+
+      // Quarantine stat
+      var qCount = hlt.quarantine_count || 0;
+      var qColor = qCount > 0 ? 'text-amber-600' : 'text-heading';
+      html += '<div class="rounded-xl border border-line bg-canvas/30 p-4 text-center"><p class="text-lg font-extrabold ' + qColor + '">' + qCount + '</p><p class="mt-1 text-[11px] text-secondary">File Karantina</p><p class="text-[10px] text-label">Menunggu tindakan</p></div>';
+
+      // Targets stat
+      html += '<div class="rounded-xl border border-line bg-canvas/30 p-4 text-center"><p class="text-lg font-extrabold text-heading">' + (hlt.targets_accessible || 0) + '/' + (hlt.targets_configured || 0) + '</p><p class="mt-1 text-[11px] text-secondary">Target Aktif</p><p class="text-[10px] text-label">Direktori terkonfigurasi</p></div>';
+
+      // YARA rules count
+      html += '<div class="rounded-xl border border-line bg-canvas/30 p-4 text-center"><p class="text-lg font-extrabold text-heading">' + (hlt.yara_rules_count || 0) + '</p><p class="mt-1 text-[11px] text-secondary">YARA Rules</p><p class="text-[10px] text-label">File definisi</p></div>';
+
+      html += '</div>'; // End stats row
+      html += '</div>'; // End health dashboard
+
+      // Separator
+      html += '<hr class="border-line">';
       
       // Control Panel
       html += '<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">';

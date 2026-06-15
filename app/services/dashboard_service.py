@@ -103,15 +103,22 @@ def get_stat_cards(db: Session) -> list[StatCard]:
         or 0
     )
 
-    # Next scheduled backup.
+    # Next scheduled backup — only future, converted to local timezone.
     next_sched = db.scalars(
         select(Schedule)
-        .where(Schedule.is_enabled.is_(True), Schedule.next_run_at.is_not(None))
+        .where(
+            Schedule.is_enabled.is_(True),
+            Schedule.next_run_at.is_not(None),
+            Schedule.next_run_at >= _utcnow(),
+        )
         .order_by(Schedule.next_run_at.asc())
         .limit(1)
     ).first()
     if next_sched and next_sched.next_run_at:
-        next_value = next_sched.next_run_at.strftime("%d %b %H:%M")
+        from app.services import settings_service
+
+        local_dt = settings_service.to_local(next_sched.next_run_at)
+        next_value = local_dt.strftime("%d %b %H:%M") if local_dt else "-"
         next_hint = next_sched.project.name if next_sched.project else "Terjadwal"
     else:
         next_value = "-"

@@ -14,7 +14,9 @@ Schedule recurrence model (from the Schedule row):
 from __future__ import annotations
 
 import logging
+from datetime import timezone as _tz
 
+from apscheduler.events import EVENT_JOB_EXECUTED, JobExecutionEvent
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
@@ -97,6 +99,7 @@ def start() -> None:
     if _scheduler is not None:
         return
     _scheduler = BackgroundScheduler(timezone="UTC")
+    _scheduler.add_listener(_on_job_executed, EVENT_JOB_EXECUTED)
     _scheduler.start()
     logger.info("Scheduler started.")
     reload_jobs()
@@ -161,6 +164,15 @@ def sync_project(project_id: int) -> None:
         db.close()
 
 
+def _to_utc(dt):
+    """Normalize a timezone-aware datetime to UTC for DB storage."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(_tz.utc)
+    return dt.replace(tzinfo=_tz.utc)
+
+
 def _register(sched: Schedule) -> None:
     """Add a job for an enabled schedule and persist its next run time."""
     if _scheduler is None:
@@ -176,13 +188,13 @@ def _register(sched: Schedule) -> None:
             misfire_grace_time=3600,
             coalesce=True,
         )
-        # Persist next run time for display.
+        # Persist next run time for display (always stored as UTC).
         if job.next_run_time is not None:
             db = SessionLocal()
             try:
                 row = db.get(Schedule, sched.id)
                 if row is not None:
-                    row.next_run_at = job.next_run_time
+                    row.next_run_at = _to_utc(job.next_run_time)
                     db.commit()
             finally:
                 db.close()
@@ -193,6 +205,51 @@ def _register(sched: Schedule) -> None:
 def is_running() -> bool:
     """Return True if the scheduler is active."""
     return _scheduler is not None and _scheduler.running
+
+
+def get_registered_job_ids() -> list[str]:
+    """Return the list of currently registered job IDs (for health monitoring)."""
+    if _scheduler is None:
+        return []
+    try:
+        return [j.id for j in _scheduler.get_jobs()]
+    except Exception:  # pragma: no cover
+        return []
+
+
+def _on_job_executed(event: JobExecutionEvent) -> None:
+    """Listener: update next_run_at in the DB after a job executes.
+
+    This keeps the 'Next Scheduled Backup' card on the dashboard accurate
+    by refreshing next_run_at from the scheduler's computed next fire time.
+    """
+    if _scheduler is None:
+        return
+    job = _scheduler.get_job(event.job_id)
+    if job is None:
+        return
+    # Only handle project-backup-* jobs (not AV scan, etc.)
+    if not event.job_id.startswith("project-backup-"):
+        return
+    try:
+        project_id = int(event.job_id.replace("project-backup-", ""))
+    except (ValueError, TypeError):
+        return
+    db = SessionLocal()
+    try:
+        sched = (
+            db.query(Schedule)
+            .filter(Schedule.project_id == project_id)
+            .one_or_none()
+        )
+        if sched is not None:
+            sched.next_run_at = _to_utc(job.next_run_time)
+            sched.last_run_at = _to_utc(event.scheduled_run_time)
+            db.commit()
+    except Exception:  # pragma: no cover
+        db.rollback()
+    finally:
+        db.close()
 
 
 def sync_av_scan() -> None:
