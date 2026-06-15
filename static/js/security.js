@@ -89,7 +89,8 @@
     var content = $("tab-content");
     content.innerHTML = '<div class="flex h-full items-center justify-center text-sm text-secondary">Memuat data...</div>';
 
-    var url = "/api/security/" + state.currentTab;
+    var urlPath = state.currentTab === "osscheduler" ? "os-scheduler" : state.currentTab;
+    var url = "/api/security/" + urlPath;
     apiGet(url).then(function(res) {
       if (!res.ok) {
         content.innerHTML = '<div class="text-sm text-red-500 p-4">Error: ' + escapeHtml(res.error) + '</div>';
