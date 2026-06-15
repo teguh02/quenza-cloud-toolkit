@@ -242,6 +242,7 @@ async def api_firewall_rule(
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
+@router.get("/api/security/osscheduler")
 @router.get("/api/security/os-scheduler")
 async def api_get_os_scheduler(_auth: None = Depends(require_api_auth)):
     try:
