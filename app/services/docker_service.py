@@ -193,3 +193,51 @@ def remove_resource(db: Session, host_id: int, resource_type: str, resource_id: 
         return {"ok": True, "message": f"{msg} deleted successfully."}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+def get_dangling_stats(db: Session, host_id: int) -> dict[str, Any]:
+    """Get stats for dangling images and build cache."""
+    host = db.query(DockerHost).filter(DockerHost.id == host_id).first()
+    if not host:
+        return {"ok": False, "error": "Host not found"}
+    try:
+        client = _get_client(host)
+        
+        # Dangling Images
+        dangling_images = client.images.list(filters={'dangling': True})
+        img_count = len(dangling_images)
+        img_size = sum(i.attrs.get("Size", 0) for i in dangling_images)
+        
+        # Build Cache
+        df = client.api.df()
+        build_cache_size = 0
+        build_cache_count = 0
+        if "BuildCache" in df and df["BuildCache"]:
+            build_caches = df["BuildCache"]
+            build_cache_count = len(build_caches)
+            build_cache_size = sum(bc.get("Size", 0) for bc in build_caches)
+            
+        return {
+            "ok": True,
+            "images": {"count": img_count, "size": img_size},
+            "build_cache": {"count": build_cache_count, "size": build_cache_size}
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+def prune_dangling(db: Session, host_id: int, resource_type: str) -> dict[str, Any]:
+    """Prune dangling images or build cache."""
+    host = db.query(DockerHost).filter(DockerHost.id == host_id).first()
+    if not host:
+        return {"ok": False, "error": "Host not found"}
+    try:
+        client = _get_client(host)
+        if resource_type == "images":
+            client.images.prune(filters={'dangling': True})
+            return {"ok": True, "message": "Dangling images berhasil dibersihkan."}
+        elif resource_type == "build_cache":
+            client.api.prune_builds()
+            return {"ok": True, "message": "Dangling build cache berhasil dibersihkan."}
+        else:
+            return {"ok": False, "error": f"Tipe resource '{resource_type}' tidak valid."}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}

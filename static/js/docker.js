@@ -83,6 +83,8 @@
     var content = $("tab-content");
     if (content) content.innerHTML = '<div class="flex h-full items-center justify-center text-sm text-secondary">Memuat data...</div>';
 
+    fetchDanglingStats();
+
     var url = "/api/docker/" + state.hostId + "/" + state.currentTab;
     apiGet(url).then(function(data) {
       if (!data.ok) {
@@ -262,11 +264,59 @@
     });
   }
 
+  function fetchDanglingStats() {
+    if (!state.hostId) return;
+    if ($("stat-cache-count")) {
+      $("stat-cache-count").textContent = "Memuat...";
+      $("stat-cache-size").textContent = "-";
+      $("stat-image-count").textContent = "Memuat...";
+      $("stat-image-size").textContent = "-";
+
+      var url = "/api/docker/" + state.hostId + "/dangling-stats";
+      apiGet(url).then(function(data) {
+        if (data.ok) {
+          $("stat-cache-count").textContent = data.build_cache.count + " records";
+          $("stat-cache-size").textContent = (data.build_cache.size / 1024 / 1024).toFixed(2) + " MB";
+          $("stat-image-count").textContent = data.images.count + " images";
+          $("stat-image-size").textContent = (data.images.size / 1024 / 1024).toFixed(2) + " MB";
+        } else {
+          $("stat-cache-count").textContent = "Error";
+          $("stat-image-count").textContent = "Error";
+        }
+      }).catch(function() {
+        $("stat-cache-count").textContent = "Error";
+        $("stat-image-count").textContent = "Error";
+      });
+    }
+  }
+
+  function pruneDangling(type) {
+    if (!state.hostId) return;
+    var typeName = type === "build_cache" ? "Build Cache" : "Dangling Images";
+    if (!confirm("Anda yakin ingin menghapus semua " + typeName + "?")) return;
+
+    var url = "/api/docker/" + state.hostId + "/prune/" + type;
+    apiPost(url, {}).then(function(res) {
+      if (res.ok) {
+        alert(res.message);
+        fetchDanglingStats();
+        if (state.currentTab === "images") {
+          refresh();
+        }
+      } else {
+        alert("Gagal: " + res.error);
+      }
+    }).catch(function(e) {
+      alert("Kesalahan: " + e);
+    });
+  }
+
   window.DockerMgmt = {
     init: init,
     selectHost: selectHost,
     switchTab: switchTab,
     refresh: refresh,
-    executeAction: executeAction
+    executeAction: executeAction,
+    pruneDangling: pruneDangling
   };
 })();

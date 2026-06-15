@@ -97,3 +97,20 @@ async def api_remove_resource(
     # Remove trailing 's' to match service layer expected 'image', 'volume', 'network'
     rtype = resource_type[:-1] if resource_type.endswith('s') else resource_type
     return docker_service.remove_resource(db, host_id, rtype, req.resource_id)
+
+@router.get("/api/docker/{host_id}/dangling-stats")
+async def api_get_dangling_stats(
+    host_id: int, 
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_api_auth)
+):
+    return docker_service.get_dangling_stats(db, host_id)
+
+@router.post("/api/docker/{host_id}/prune/{resource_type}")
+async def api_prune_dangling(
+    host_id: int,
+    resource_type: str,
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_api_auth)
+):
+    return docker_service.prune_dangling(db, host_id, resource_type)
