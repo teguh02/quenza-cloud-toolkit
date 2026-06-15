@@ -157,7 +157,7 @@ async def api_set_antivirus_config(
         return {"ok": False, "error": str(e)}
 
 class QuarantineActionRequest(BaseModel):
-    action: str  # 'restore' or 'delete'
+    action: str  # 'restore', 'delete', or 'clean'
 
 @router.post("/api/security/antivirus/quarantine/{log_id}")
 async def api_quarantine_action(
@@ -173,12 +173,16 @@ async def api_quarantine_action(
         elif req.action == "delete":
             res = scanner_service.delete_quarantined_file(log_id, db=db)
             msg = "File berhasil dihapus permanen."
+        elif req.action == "clean":
+            res, msg = scanner_service.clean_quarantined_file(log_id, db=db)
         else:
             return {"ok": False, "error": "Aksi tidak dikenali."}
             
         if res:
             return {"ok": True, "message": msg}
         else:
+            if req.action == "clean":
+                return {"ok": False, "error": f"Gagal membersihkan: {msg}"}
             return {"ok": False, "error": "Gagal memproses file. Mungkin sudah terhapus atau dipulihkan."}
     except Exception as e:
         return {"ok": False, "error": str(e)}

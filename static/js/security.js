@@ -348,7 +348,8 @@
               t += '<td class="py-2">' + badge + '</td>';
               t += '<td class="py-2 text-right space-x-2">';
               if (l.status === 'quarantined') {
-                  t += '<button onclick="SecurityMgmt.avAction(' + l.id + ', \'restore\')" class="text-xs text-brand-teal hover:underline font-bold">Restore</button>';
+                  t += '<button onclick="SecurityMgmt.avAction(' + l.id + ', \'clean\')" class="text-xs text-purple-600 hover:text-purple-800 hover:underline font-bold mr-2 border border-purple-200 px-2 py-0.5 rounded-md bg-purple-50 transition-colors">✨ Clean (AI)</button>';
+                  t += '<button onclick="SecurityMgmt.avAction(' + l.id + ', \'restore\')" class="text-xs text-brand-teal hover:underline font-bold mr-2">Restore</button>';
                   t += '<button onclick="SecurityMgmt.avAction(' + l.id + ', \'delete\')" class="text-xs text-red-500 hover:underline font-bold">Hapus</button>';
               }
               t += '</td></tr>';
@@ -568,12 +569,32 @@
   }
 
   function avAction(id, action) {
-      if(!confirm("Yakin ingin " + (action === "restore" ? "memulihkan file ke lokasi asli?" : "menghapus file permanen?"))) return;
+      var actName = action === "restore" ? "memulihkan file ke lokasi asli?" : 
+                    action === "clean" ? "membersihkan file ini menggunakan AI (menghapus baris kode bahaya) dan mengembalikannya ke habitat asal?" : 
+                    "menghapus file permanen?";
+                    
+      if(!confirm("Yakin ingin " + actName)) return;
+      
+      if(action === "clean") {
+          var btn = document.activeElement;
+          if(btn && btn.tagName === "BUTTON") {
+              btn.innerHTML = '<span class="animate-pulse">Cleaning...</span>';
+              btn.disabled = true;
+          }
+      }
+
       apiPost("/api/security/antivirus/quarantine/" + id, { action: action }).then(function(res) {
-          if(res.ok) refresh();
-          else alert("Error: " + res.error);
+          if(res.ok) {
+              if (action === "clean") alert("✨ File berhasil dibersihkan dari malware dan dipulihkan!");
+              refresh();
+          }
+          else {
+              alert("Error: " + res.error);
+              if (action === "clean") refresh(); // Reset button state
+          }
       }).catch(function(e) {
           alert("Error: " + e);
+          if (action === "clean") refresh();
       });
   }
 

@@ -5,11 +5,12 @@ import shutil
 import uuid
 import json
 import subprocess
-from datetime import datetime, timezone
+import asyncio
+from datetime import datetime, timezone, timedelta
 
 from app.database import SessionLocal
 from app.models import QuarantineLog, AppSetting
-from app.services import notification_service
+from app.services import notification_service, ai_service
 
 try:
     import yara
@@ -245,6 +246,70 @@ def delete_quarantined_file(log_id: int, db=None) -> bool:
             db.close()
 
 
+def clean_quarantined_file(log_id: int, db=None) -> tuple[bool, str]:
+    """Use AI to remove malware lines and restore the clean file."""
+    if not ai_service.is_ai_enabled():
+        return False, "AI dinonaktifkan."
+        
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
+        
+    try:
+        log = db.get(QuarantineLog, log_id)
+        if not log or log.status != "quarantined":
+            return False, "File tidak ditemukan di karantina."
+            
+        if not os.path.exists(log.quarantined_path):
+            return False, "File fisik tidak ditemukan."
+            
+        with open(log.quarantined_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            
+        import asyncio
+        cleaned_content = asyncio.run(ai_service.ask_ai_clean_file(content))
+        
+        if "Fitur AI dinonaktifkan" in cleaned_content or "Terjadi kesalahan" in cleaned_content:
+            return False, "Gagal membersihkan menggunakan AI."
+            
+        # Ensure original directory exists
+        orig_dir = os.path.dirname(log.original_path)
+        if orig_dir:
+            os.makedirs(orig_dir, exist_ok=True)
+            
+        # Write clean content to original path
+        with open(log.original_path, "w", encoding="utf-8") as f:
+            f.write(cleaned_content)
+            
+        # Delete quarantined file
+        os.remove(log.quarantined_path)
+            
+        log.status = "restored" # Mark as restored since it's back in place
+        log.resolved_at = datetime.now(timezone.utc)
+        db.commit()
+        return True, "File berhasil dibersihkan dan dipulihkan."
+    except Exception as e:
+        logger.error(f"Failed to clean quarantined file: {e}")
+        db.rollback()
+        return False, str(e)
+    finally:
+        if close_db:
+            db.close()
+
+
+def _is_script_file(filepath: str) -> bool:
+    exts = [".php", ".py", ".js", ".sh", ".bash", ".pl", ".rb", ".ps1"]
+    return any(filepath.lower().endswith(ext) for ext in exts)
+
+def _is_recently_modified(filepath: str, hours=48) -> bool:
+    try:
+        mtime = os.path.getmtime(filepath)
+        dt = datetime.fromtimestamp(mtime, timezone.utc)
+        return (datetime.now(timezone.utc) - dt) < timedelta(hours=hours)
+    except OSError:
+        return False
+
 def run_standalone_scan(progress_cb=None, trigger="manual"):
     """Run a standalone scan based on global Security settings."""
     start_time = datetime.now(timezone.utc)
@@ -309,6 +374,29 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
                             emit(2, f"Memindai file ke-{i} dari {total_files}...", pct)
 
                         triggered = scan_file(filepath)
+                        
+                        # Semantic Zero-Day Check
+                        if not triggered and _is_script_file(filepath) and _is_recently_modified(filepath):
+                            if ai_service.is_ai_enabled():
+                                try:
+                                    with open(filepath, "r", encoding="utf-8") as f_obj:
+                                        content = f_obj.read()
+                                    ai_result = asyncio.run(ai_service.ask_ai_semantic_check(content))
+                                    if ai_result != "SAFE" and "Fitur AI" not in ai_result and "Terjadi kesalahan" not in ai_result:
+                                        triggered.append(f"AI-Semantic: {ai_result[:100]}")
+                                        
+                                        # Dynamic YARA Rule Generator
+                                        import hashlib
+                                        fhash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+                                        rule_name = f"ai_zero_day_{fhash[:8]}"
+                                        rule_content = f'rule {rule_name} {{\n    meta:\n        description = "AI Detected Semantic Zero-Day"\n        hash = "{fhash}"\n    condition:\n        hash.sha256(0, filesize) == "{fhash}"\n}}'
+                                        rule_path = os.path.join("app", "data", "yara_rules", "malware", f"{rule_name}.yar")
+                                        os.makedirs(os.path.dirname(rule_path), exist_ok=True)
+                                        with open(rule_path, "w", encoding="utf-8") as rf:
+                                            rf.write(rule_content)
+                                except Exception as e:
+                                    logger.debug(f"AI Semantic check failed for {filepath}: {e}")
+
                         if triggered:
                             findings.append({"file": filepath, "rules": triggered})
                     
@@ -318,13 +406,27 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
                         for f in findings:
                             filepath = f["file"]
                             rule_matched = ", ".join(f["rules"])
-                            try:
-                                if os.path.exists(filepath):
-                                    quarantine_file(filepath, rule_matched, db=db)
-                                    quarantined.append({"file": filepath, "status": "quarantined"})
-                            except Exception as e:
-                                logger.error(f"Failed to auto-quarantine {filepath}: {e}")
-                                quarantined.append({"file": filepath, "status": "error", "error": str(e)})
+                            
+                            is_malicious = True
+                            if ai_service.is_ai_enabled() and _is_script_file(filepath):
+                                try:
+                                    with open(filepath, "r", encoding="utf-8") as file_obj:
+                                        content = file_obj.read()
+                                    ai_verdict = asyncio.run(ai_service.ask_ai_quarantine_check(content, rule_matched))
+                                    if "FALSE-POSITIVE" in ai_verdict:
+                                        is_malicious = False
+                                        logger.info(f"AI Hakim Kedua marked {filepath} as False-Positive. Aborting quarantine.")
+                                except Exception as e:
+                                    logger.debug(f"AI Quarantine check failed: {e}")
+
+                            if is_malicious:
+                                try:
+                                    if os.path.exists(filepath):
+                                        quarantine_file(filepath, rule_matched, db=db)
+                                        quarantined.append({"file": filepath, "status": "quarantined"})
+                                except Exception as e:
+                                    logger.error(f"Failed to auto-quarantine {filepath}: {e}")
+                                    quarantined.append({"file": filepath, "status": "error", "error": str(e)})
                     elif findings:
                         logger.warning(f"Standalone scan found {len(findings)} malware, but auto-quarantine is OFF.")
                     
@@ -344,6 +446,14 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
             "findings": findings,
             "quarantined": quarantined
         }
+
+        if findings and ai_service.is_ai_enabled():
+            try:
+                report = asyncio.run(ai_service.ask_ai_threat_report(findings))
+                if report and "Fitur AI" not in report:
+                    detail["ai_threat_report"] = report
+            except Exception as e:
+                logger.debug(f"AI Threat report failed: {e}")
 
         from app.models import BackupLog
         blog = BackupLog(
