@@ -339,7 +339,7 @@ async def api_ai_processes(_auth: None = Depends(require_api_auth)):
     if cached:
         return {"ok": True, "data": cached, "cached": True}
     
-    data = security_service.get_top_processes()
+    data = security_service.get_processes()
     dev_prompt = (
         "Anda adalah pakar keamanan IT. Analisis daftar proses ini. "
         "Kembalikan respon DALAM FORMAT JSON SAJA, berupa list/array of object dengan field: "
