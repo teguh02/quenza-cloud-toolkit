@@ -641,13 +641,33 @@
                 outHtml += '<p class="text-sm text-purple-800 leading-relaxed whitespace-pre-wrap mt-2">' + escapeHtml(res.data) + '</p>';
             }
         } else {
-            outHtml += '<p class="text-sm text-purple-800 leading-relaxed whitespace-pre-wrap mt-2">' + escapeHtml(res.data) + '</p>';
+            outHtml += '<div class="text-sm text-purple-800 leading-relaxed space-y-1 mt-2">' + renderSimpleMarkdown(res.data) + '</div>';
         }
         outHtml += '</div></div>';
         aiContainer.innerHTML = outHtml;
     }).catch(function(e) {
         aiContainer.innerHTML = '<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">Kesalahan jaringan AI: ' + e + '</div>';
     });
+  }
+
+  function renderSimpleMarkdown(text) {
+      if (!text) return "";
+      var escaped = escapeHtml(text);
+      // Headers
+      escaped = escaped.replace(/^### (.*$)/gim, '<h4 class="text-xs font-bold mt-3 mb-1 uppercase tracking-wider text-purple-900">$1</h4>');
+      escaped = escaped.replace(/^## (.*$)/gim, '<h3 class="text-sm font-bold mt-4 mb-2 text-purple-900">$1</h3>');
+      // Bold
+      escaped = escaped.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+      // Code inline
+      escaped = escaped.replace(/`([^`]+)`/gim, '<code class="bg-purple-100/70 text-purple-900 px-1 py-0.5 rounded font-mono text-xs">$1</code>');
+      // Lists
+      escaped = escaped.replace(/^\* (.*$)/gim, '<li class="ml-4 list-disc">$1</li>');
+      escaped = escaped.replace(/^- (.*$)/gim, '<li class="ml-4 list-disc">$1</li>');
+      // HR
+      escaped = escaped.replace(/^---$/gim, '<hr class="border-purple-200/60 my-3">');
+      // Paragraphs (newlines)
+      escaped = escaped.replace(/\n/g, '<br>');
+      return escaped;
   }
 
   window.SecurityMgmt = {

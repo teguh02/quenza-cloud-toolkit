@@ -295,21 +295,49 @@ async def api_os_scheduler_action(
 
 # --- AI Endpoints ---
 
+from datetime import datetime, timezone, timedelta
+
+_AI_CACHE = {}
+CACHE_TTL_MINUTES = 60
+
+def _get_cached(key: str):
+    if key in _AI_CACHE:
+        if (datetime.now(timezone.utc) - _AI_CACHE[key]["time"]).total_seconds() < CACHE_TTL_MINUTES * 60:
+            return _AI_CACHE[key]["data"]
+    return None
+
+def _set_cached(key: str, data: str):
+    _AI_CACHE[key] = {
+        "time": datetime.now(timezone.utc),
+        "data": data
+    }
+
 @router.get("/api/security/ai/system")
 async def api_ai_system(_auth: None = Depends(require_api_auth)):
     if not ai_service.is_ai_enabled():
         return {"ok": False, "error": "AI dinonaktifkan."}
+        
+    cache_key = "system_info"
+    cached = _get_cached(cache_key)
+    if cached:
+        return {"ok": True, "data": cached, "cached": True}
     
     data = security_service.get_system_info()
     dev_prompt = "Anda adalah pakar keamanan IT (Security Expert). Berikan analisis performa dan rekomendasi optimalisasi ringkas (RAM, CPU, Disk) dalam Bahasa Indonesia berdasarkan data JSON berikut."
     resp = await ai_service.ask_ai(dev_prompt, json.dumps(data), effort="low")
-    return {"ok": True, "data": resp}
+    _set_cached(cache_key, resp)
+    return {"ok": True, "data": resp, "cached": False}
 
 
 @router.get("/api/security/ai/processes")
 async def api_ai_processes(_auth: None = Depends(require_api_auth)):
     if not ai_service.is_ai_enabled():
         return {"ok": False, "error": "AI dinonaktifkan."}
+        
+    cache_key = "processes"
+    cached = _get_cached(cache_key)
+    if cached:
+        return {"ok": True, "data": cached, "cached": True}
     
     data = security_service.get_top_processes()
     dev_prompt = (
@@ -320,29 +348,42 @@ async def api_ai_processes(_auth: None = Depends(require_api_auth)):
     )
     short_data = [{"pid": d["pid"], "name": d["name"], "cpu": d["cpu_percent"], "ram": d["memory_mb"], "cmd": d.get("cmdline")} for d in data[:50]]
     resp = await ai_service.ask_ai(dev_prompt, json.dumps(short_data), effort="medium")
-    return {"ok": True, "data": resp}
+    _set_cached(cache_key, resp)
+    return {"ok": True, "data": resp, "cached": False}
 
 
 @router.get("/api/security/ai/firewall")
 async def api_ai_firewall(_auth: None = Depends(require_api_auth)):
     if not ai_service.is_ai_enabled():
         return {"ok": False, "error": "AI dinonaktifkan."}
+        
+    cache_key = "firewall"
+    cached = _get_cached(cache_key)
+    if cached:
+        return {"ok": True, "data": cached, "cached": True}
     
     adapter = security_service.get_firewall_adapter()
     data = adapter.get_rules()
     dev_prompt = "Anda adalah pakar keamanan IT. Audit aturan firewall ini. Rekomendasikan port apa yang berbahaya dan perlu diblock, atau aturan dasar apa yang kurang dalam bentuk poin-poin singkat (Bahasa Indonesia)."
     resp = await ai_service.ask_ai(dev_prompt, json.dumps(data), effort="low")
-    return {"ok": True, "data": resp}
+    _set_cached(cache_key, resp)
+    return {"ok": True, "data": resp, "cached": False}
 
 
 @router.get("/api/security/ai/osscheduler")
 async def api_ai_osscheduler(_auth: None = Depends(require_api_auth)):
     if not ai_service.is_ai_enabled():
         return {"ok": False, "error": "AI dinonaktifkan."}
+        
+    cache_key = "osscheduler"
+    cached = _get_cached(cache_key)
+    if cached:
+        return {"ok": True, "data": cached, "cached": True}
     
     adapter = security_service.get_os_scheduler_adapter()
     data = adapter.get_tasks()
     dev_prompt = "Anda adalah pakar keamanan IT. Audit sebagian daftar OS Task/Cron ini. Identifikasi apakah ada tugas yang berpotensi malware (persistence mechanism) atau memberi tips keamanan ringkas (Bahasa Indonesia)."
     short_data = data[:100]
     resp = await ai_service.ask_ai(dev_prompt, json.dumps(short_data), effort="medium")
-    return {"ok": True, "data": resp}
+    _set_cached(cache_key, resp)
+    return {"ok": True, "data": resp, "cached": False}
