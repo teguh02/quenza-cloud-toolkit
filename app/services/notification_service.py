@@ -295,6 +295,62 @@ def notify_disk_warning(disk_path: str, free_gb: float, percent_used: float) -> 
         logger.exception("notify_disk_warning failed")
 
 
+def notify_system_health(system_name: str, alerts: list[str], warnings: list[str]) -> None:
+    """Notify when a critical system health issue is detected."""
+    try:
+        cfg = settings_service.get_notification_config()
+        if not _should_notify(cfg, event_type="health"):
+            return
+
+        when = settings_service.to_local(_now())
+        has_alerts = len(alerts) > 0
+        status_label = "Kritis" if has_alerts else "Perhatian"
+        
+        subject = f"[Quenza] Sistem Bermasalah: {system_name}"
+        
+        lines = [
+            f"Status Sistem  : {status_label}",
+            f"Modul          : {system_name}",
+            f"Waktu Laporan  : {when.strftime('%Y-%m-%d %H:%M %Z') if when else '-'}",
+            "",
+        ]
+        
+        if alerts:
+            lines.append("Peringatan Kritis:")
+            for a in alerts:
+                lines.append(f"- {a}")
+            lines.append("")
+            
+        if warnings:
+            lines.append("Perhatian (Peringatan Ringan):")
+            for w in warnings:
+                lines.append(f"- {w}")
+
+        body = "\n".join(lines)
+
+        if cfg.channel == "email":
+            send_email(subject, body, cfg.recipients)
+        elif cfg.channel == "telegram":
+            emoji = "🚨" if has_alerts else "⚠️"
+            html = (
+                f"{emoji} <b>Sistem Bermasalah: {system_name}</b>\n"
+                f"<b>Waktu:</b> {when.strftime('%Y-%m-%d %H:%M') if when else '-'}\n\n"
+            )
+            if alerts:
+                html += "<b>Peringatan Kritis:</b>\n"
+                for a in alerts:
+                    html += f"• {a}\n"
+                html += "\n"
+            if warnings:
+                html += "<b>Perhatian:</b>\n"
+                for w in warnings:
+                    html += f"• {w}\n"
+                    
+            send_telegram(html)
+    except Exception:
+        logger.exception("notify_system_health failed")
+
+
 def _now():
     from datetime import datetime, timezone
 

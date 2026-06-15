@@ -99,6 +99,7 @@ async def settings_notifications(
     notify_on_backup: str = Form(""),
     notify_on_scan: str = Form(""),
     notify_on_disk: str = Form(""),
+    notify_on_health: str = Form(""),
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
     """Save notification settings."""
@@ -123,6 +124,7 @@ async def settings_notifications(
             notify_on_backup=bool(notify_on_backup),
             notify_on_scan=bool(notify_on_scan),
             notify_on_disk=bool(notify_on_disk),
+            notify_on_health=bool(notify_on_health),
         )
     except ValueError as exc:
         return _redirect("/settings", msg=str(exc), type="error")

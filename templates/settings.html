@@ -125,7 +125,7 @@
             
             <div>
               <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Kejadian (Event) Notifikasi</label>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <label class="flex items-center gap-3 rounded-xl border border-line bg-canvas px-4 py-3 cursor-pointer transition-colors hover:border-brand-teal/50">
                   <input type="checkbox" name="notify_on_backup" value="1" class="h-4 w-4 rounded accent-brand-teal" {% if notif.notify_events.backup %}checked{% endif %}>
                   <span class="text-sm font-semibold text-heading">Selesai Backup</span>
@@ -137,6 +137,10 @@
                 <label class="flex items-center gap-3 rounded-xl border border-line bg-canvas px-4 py-3 cursor-pointer transition-colors hover:border-brand-teal/50">
                   <input type="checkbox" name="notify_on_disk" value="1" class="h-4 w-4 rounded accent-brand-teal" {% if notif.notify_events.disk %}checked{% endif %}>
                   <span class="text-sm font-semibold text-heading">Disk > 90%</span>
+                </label>
+                <label class="flex items-center gap-3 rounded-xl border border-line bg-canvas px-4 py-3 cursor-pointer transition-colors hover:border-brand-teal/50">
+                  <input type="checkbox" name="notify_on_health" value="1" class="h-4 w-4 rounded accent-brand-teal" {% if notif.notify_events.health %}checked{% endif %}>
+                  <span class="text-sm font-semibold text-heading">Sistem Bermasalah</span>
                 </label>
               </div>
             </div>

@@ -22,6 +22,7 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
   - Laporan Selesai Backup/Restore.
   - Laporan Selesai Scan Antivirus (beserta jumlah ancaman 🚨).
   - Peringatan Storage/Disk Lokal Hampir Penuh (>90%).
+  - **Laporan Sistem Bermasalah (Health Monitor)**: Otomatis mengirim notifikasi bila mendeteksi masalah kritis pada Scheduler atau Antivirus.
 - **Validasi Sumber Duplikat**: Mencegah penambahan *file* atau direktori yang sudah ada di dalam sebuah *project* yang sama untuk menghindari redudansi *backup*.
 - **Monitoring Kesehatan Scheduler**: Sistem pemantauan proaktif yang mendeteksi apakah APScheduler aktif, apakah semua jadwal terdaftar, dan apakah ada jadwal yang terlewat (threshold 10 menit). Banner peringatan otomatis ditampilkan di halaman **Dashboard** dan **Settings** jika terdeteksi masalah.
 - **Monitoring Kesehatan Antivirus**: Dashboard kesehatan khusus untuk modul Antivirus & Scanner. Memeriksa ketersediaan engine (ClamAV & YARA), status kompilasi rules, target direktori yang tidak dapat diakses, dan statistik karantina.

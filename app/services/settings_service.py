@@ -26,7 +26,7 @@ from app.services import crypto
 KEY_TIMEZONE = "timezone"
 KEY_NOTIFY_CHANNEL = "notify_channel"      # none | email | telegram
 KEY_NOTIFY_ON = "notify_on"                # all | failed
-KEY_NOTIFY_EVENTS = "notify_events"        # JSON: {"backup": true, "scan": false, "disk": false}
+KEY_NOTIFY_EVENTS = "notify_events"        # JSON: {"backup": true, "scan": false, "disk": false, "health": true}
 KEY_SMTP = "smtp"                          # JSON: host, port, user, password(enc), from_addr, use_tls
 KEY_EMAIL_RECIPIENTS = "email_recipients"  # JSON list[str]
 KEY_TELEGRAM = "telegram"                  # JSON: token(enc), chat_id
@@ -178,7 +178,7 @@ class TelegramConfig:
 class NotificationConfig:
     channel: str = "none"        # none | email | telegram
     notify_on: str = "all"       # all | failed
-    notify_events: dict = field(default_factory=lambda: {"backup": True, "scan": False, "disk": False})
+    notify_events: dict = field(default_factory=lambda: {"backup": True, "scan": False, "disk": False, "health": True})
     smtp: SmtpConfig = field(default_factory=SmtpConfig)
     recipients: list[str] = field(default_factory=list)
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
@@ -206,6 +206,7 @@ def get_notification_config() -> NotificationConfig:
         "backup": bool(events_raw.get("backup", True)),
         "scan": bool(events_raw.get("scan", False)),
         "disk": bool(events_raw.get("disk", False)),
+        "health": bool(events_raw.get("health", True)),
     }
 
     # SMTP
@@ -274,6 +275,7 @@ def save_notifications(
     notify_on_backup: bool = True,
     notify_on_scan: bool = False,
     notify_on_disk: bool = False,
+    notify_on_health: bool = True,
 ) -> None:
     """Validate and persist notification settings.
 
@@ -361,6 +363,7 @@ def save_notifications(
         "backup": bool(notify_on_backup),
         "scan": bool(notify_on_scan),
         "disk": bool(notify_on_disk),
+        "health": bool(notify_on_health),
     }
     _set_raw(db, KEY_NOTIFY_EVENTS, json.dumps(events_obj, ensure_ascii=False))
 

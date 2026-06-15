@@ -71,9 +71,21 @@ async def lifespan(_app: FastAPI):
     except Exception:  # pragma: no cover
         logger.exception("Failed to run job recovery sweep.")
 
+    # Start system health monitor loop
+    monitor_task = None
+    try:
+        import asyncio
+        from app.services import system_health_monitor
+        monitor_task = asyncio.create_task(system_health_monitor.start_monitor_loop())
+    except Exception:
+        logger.exception("Failed to start health monitor loop.")
+
     yield
 
     # Shutdown.
+    if monitor_task:
+        monitor_task.cancel()
+        
     try:
         from app import scheduler
 
