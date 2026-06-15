@@ -13,6 +13,7 @@ from app.database import SessionLocal
 from app.models import QuarantineLog, AppSetting
 from app.services import notification_service, ai_service
 from app.services.heuristic_filter import HeuristicPreFilter
+from app.services.quarantine_filter import QuarantineHeuristicFilter
 
 try:
     import yara
@@ -373,6 +374,7 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
                     ai_call_count = 0
                     MAX_AI_CALLS = 30
                     heuristic_filter = HeuristicPreFilter()
+                    quarantine_filter = QuarantineHeuristicFilter(heuristic_filter)
                     
                     for i, filepath in enumerate(files_to_scan):
                         if i % max(1, total_files // 20) == 0:
@@ -415,6 +417,9 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
                             findings.append({"file": filepath, "rules": triggered})
                     
                     emit(3, "Menganalisa dan karantina...", 95)
+                    quarantine_ai_calls = 0
+                    MAX_QUARANTINE_AI_CALLS = 10
+                    
                     if auto_quarantine and findings:
                         logger.info(f"Auto-quarantining {len(findings)} detected files.")
                         for f in findings:
@@ -426,10 +431,20 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
                                 try:
                                     with open(filepath, "r", encoding="utf-8") as file_obj:
                                         content = file_obj.read()
-                                    ai_verdict = asyncio.run(ai_service.ask_ai_quarantine_check(content, rule_matched))
-                                    if "FALSE-POSITIVE" in ai_verdict:
-                                        is_malicious = False
-                                        logger.info(f"AI Hakim Kedua marked {filepath} as False-Positive. Aborting quarantine.")
+                                    _, ext = os.path.splitext(filepath)
+                                    q_action = quarantine_filter.evaluate(content, ext)
+                                    
+                                    if q_action == "QUARANTINE_DIRECT":
+                                        logger.info(f"Heuristic score is extremely high for {filepath}. Bypassing AI verification.")
+                                    elif q_action == "ASK_AI":
+                                        if quarantine_ai_calls < MAX_QUARANTINE_AI_CALLS:
+                                            quarantine_ai_calls += 1
+                                            ai_verdict = asyncio.run(ai_service.ask_ai_quarantine_check(content, rule_matched))
+                                            if "FALSE-POSITIVE" in ai_verdict:
+                                                is_malicious = False
+                                                logger.info(f"AI Hakim Kedua marked {filepath} as False-Positive. Aborting quarantine.")
+                                        else:
+                                            logger.debug(f"Smart Quarantine AI limit reached ({MAX_QUARANTINE_AI_CALLS}). Proceeding with standard quarantine for {filepath}")
                                 except Exception as e:
                                     logger.debug(f"AI Quarantine check failed: {e}")
 
