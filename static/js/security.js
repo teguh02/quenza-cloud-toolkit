@@ -6,8 +6,8 @@
   var state = {
     currentTab: "system",
     loading: false,
-    actionType: null, // "kill", "firewall_rule"
-    actionTarget: null, // e.g. pid
+    actionType: null, // "kill", "firewall_rule", "osscheduler_add", "osscheduler_delete"
+    actionTarget: null, // e.g. pid, task_name
     avTargets: []
   };
 
@@ -46,18 +46,25 @@
 
   function switchTab(tab) {
     state.currentTab = tab;
-    var tabs = ["system", "processes", "firewall", "antivirus"];
+    var tabs = ["system", "processes", "firewall", "antivirus", "osscheduler"];
     var titles = {
       "system": "System Information",
       "processes": "Task Manager",
       "firewall": "Firewall Rules",
-      "antivirus": "Antivirus & Scanner"
+      "antivirus": "Antivirus & Scanner",
+      "osscheduler": "OS Scheduler (Cron / Task Scheduler)"
     };
     
     $("tab-title").textContent = titles[tab];
     
     if (tab === "firewall") {
       $("btn-add-rule").classList.remove("hidden");
+      $("btn-add-rule").textContent = "+ Tambah Rule";
+      $("btn-add-rule").setAttribute("onclick", "SecurityMgmt.showFirewallAdd()");
+    } else if (tab === "osscheduler") {
+      $("btn-add-rule").classList.remove("hidden");
+      $("btn-add-rule").textContent = "+ Tambah Tugas";
+      $("btn-add-rule").setAttribute("onclick", "SecurityMgmt.showOsSchedulerAdd()");
     } else {
       $("btn-add-rule").classList.add("hidden");
     }
@@ -350,6 +357,35 @@
       content.innerHTML = html;
       renderAvTargets();
     }
+    else if (state.currentTab === "osscheduler") {
+      var html = '<div class="space-y-6">';
+      
+      var note = el("div", "rounded-xl border border-blue-100 bg-blue-50/50 p-4");
+      note.innerHTML = '<h3 class="text-sm font-bold text-blue-800 mb-1">Catatan OS Scheduler</h3><p class="text-xs text-blue-700 leading-relaxed">Kelola tugas terjadwal tingkat sistem operasi. Menghapus tugas sistem dapat berakibat fatal. Demi keamanan, Anda disarankan hanya menghapus tugas yang sengaja Anda buat (biasanya dengan prefix <code class="bg-blue-100 px-1 py-0.5 rounded font-mono">Quenza_</code>).</p>';
+      
+      html += note.outerHTML;
+      
+      if (data.length === 0) {
+        html += '<div class="flex h-32 items-center justify-center text-sm text-label border border-dashed border-line rounded-xl">Tidak ada tugas terjadwal yang ditemukan.</div>';
+      } else {
+        var table = '<div class="w-full overflow-x-auto rounded-xl border border-line bg-surface"><table class="w-full text-left text-sm"><thead class="text-xs uppercase tracking-wider text-label border-b border-line bg-canvas/80"><tr><th class="px-4 py-3">Nama Tugas</th><th class="px-4 py-3">Jadwal / Waktu</th><th class="px-4 py-3">Perintah</th><th class="px-4 py-3 text-right">Aksi</th></tr></thead><tbody class="divide-y divide-line">';
+        data.forEach(function(t) {
+          table += '<tr class="hover:bg-canvas/30 transition-colors">';
+          table += '<td class="px-4 py-3 font-bold text-heading">' + escapeHtml(t.name) + '</td>';
+          table += '<td class="px-4 py-3 font-mono text-xs text-secondary whitespace-nowrap">' + escapeHtml(t.schedule) + '</td>';
+          table += '<td class="px-4 py-3 font-mono text-xs text-secondary max-w-xs truncate" title="' + escapeHtml(t.command) + '">' + escapeHtml(t.command) + '</td>';
+          
+          var iconTrash = '<svg class="w-4 h-4 block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+          table += '<td class="px-4 py-3 text-right"><button title="Hapus Tugas" onclick="SecurityMgmt.promptDeleteOsTask(\'' + escapeHtml(t.raw).replace(/'/g, "\\'") + '\', \'' + escapeHtml(t.name).replace(/'/g, "\\'") + '\')" class="inline-flex items-center justify-center p-2 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors focus:outline-none">' + iconTrash + '</button></td>';
+          table += '</tr>';
+        });
+        table += '</tbody></table></div>';
+        html += table;
+      }
+      
+      html += '</div>';
+      content.innerHTML = html;
+    }
   }
 
   function renderAvTargets() {
@@ -404,10 +440,41 @@
     $("action-modal-title").textContent = "Tambah / Ubah Rule Firewall";
     $("action-modal-desc").textContent = "Aturan firewall dapat memutus koneksi remote Anda. Hati-hati. Masukkan Master Password untuk otorisasi.";
     $("firewall-inputs").classList.remove("hidden");
+    $("os-scheduler-inputs").classList.add("hidden");
     $("sec-master-password").value = "";
     $("sec-action-btn").textContent = "Simpan Rule";
     QuenzaModal.open("modal-security-action");
     setTimeout(function() { $("fw-port").focus(); }, 100);
+  }
+
+  function showOsSchedulerAdd() {
+    state.actionType = "osscheduler_add";
+    $("action-modal-title").textContent = "Tambah OS Task";
+    $("action-modal-desc").textContent = "Tugas ini akan didaftarkan pada jadwal bawaan sistem operasi. Masukkan Master Password untuk otorisasi.";
+    $("firewall-inputs").classList.add("hidden");
+    $("os-scheduler-inputs").classList.remove("hidden");
+    
+    $("os-task-name").value = "";
+    $("os-task-schedule").value = "";
+    $("os-task-command").value = "";
+    $("sec-master-password").value = "";
+    $("sec-action-btn").textContent = "Simpan Tugas";
+    
+    QuenzaModal.open("modal-security-action");
+    setTimeout(function() { $("os-task-name").focus(); }, 100);
+  }
+
+  function promptDeleteOsTask(rawName, friendlyName) {
+    state.actionType = "osscheduler_delete";
+    state.actionTarget = rawName;
+    $("action-modal-title").textContent = "Hapus Tugas";
+    $("action-modal-desc").textContent = "Yakin ingin menghapus tugas '" + friendlyName + "'? Masukkan Master Password untuk otorisasi.";
+    $("firewall-inputs").classList.add("hidden");
+    $("os-scheduler-inputs").classList.add("hidden");
+    $("sec-master-password").value = "";
+    $("sec-action-btn").textContent = "Hapus Tugas";
+    QuenzaModal.open("modal-security-action");
+    setTimeout(function() { $("sec-master-password").focus(); }, 100);
   }
 
   function executeAction() {
@@ -433,6 +500,20 @@
         alert("Port harus diisi.");
         btn.disabled = false; btn.textContent = ogText; return;
       }
+    } else if (state.actionType === "osscheduler_add") {
+      url = "/api/security/os-scheduler/action";
+      payload.action = "add";
+      payload.name = $("os-task-name").value;
+      payload.schedule = $("os-task-schedule").value;
+      payload.command = $("os-task-command").value;
+      if (!payload.name || !payload.schedule || !payload.command) {
+        alert("Semua field (Nama, Jadwal, Perintah) harus diisi.");
+        btn.disabled = false; btn.textContent = ogText; return;
+      }
+    } else if (state.actionType === "osscheduler_delete") {
+      url = "/api/security/os-scheduler/action";
+      payload.action = "delete";
+      payload.name = state.actionTarget;
     }
 
     apiPost(url, payload).then(function(res) {
@@ -496,6 +577,8 @@
     refresh: refresh,
     promptKill: promptKill,
     showFirewallAdd: showFirewallAdd,
+    showOsSchedulerAdd: showOsSchedulerAdd,
+    promptDeleteOsTask: promptDeleteOsTask,
     executeAction: executeAction,
     saveAvConfig: saveAvConfig,
     triggerAvScan: triggerAvScan,

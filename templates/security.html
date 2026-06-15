@@ -55,6 +55,12 @@
           </span>
           <span class="text-sm font-semibold text-heading">Antivirus & Scanner</span>
         </button>
+        <button type="button" onclick="SecurityMgmt.switchTab('osscheduler')" id="tab-btn-osscheduler" class="flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors hover:bg-canvas border border-transparent">
+          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-pastel-blue text-brand-teal">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </span>
+          <span class="text-sm font-semibold text-heading">OS Scheduler</span>
+        </button>
       </div>
     </div>
   </div>
@@ -121,6 +127,21 @@
               <option value="block">Block / Deny</option>
               <option value="delete">Delete Rule (Quenza Only)</option>
             </select>
+          </div>
+        </div>
+
+        <div id="os-scheduler-inputs" class="hidden space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-label mb-1">Nama Tugas</label>
+            <input type="text" id="os-task-name" class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm font-medium text-heading focus:border-brand-teal focus:outline-none" placeholder="mis: clear_cache">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-label mb-1">Jadwal (Time / Cron)</label>
+            <input type="text" id="os-task-schedule" class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm font-medium text-heading focus:border-brand-teal focus:outline-none" placeholder="DAILY 10:00 (Win) atau 0 10 * * * (Linux)">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-label mb-1">Perintah (Command)</label>
+            <input type="text" id="os-task-command" class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm font-medium text-heading focus:border-brand-teal focus:outline-none" placeholder="Perintah shell lengkap">
           </div>
         </div>
         

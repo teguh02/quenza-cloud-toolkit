@@ -241,3 +241,50 @@ async def api_firewall_rule(
             return {"ok": False, "error": "Gagal menerapkan aturan (pastikan hak akses memadai/sudo)."}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+@router.get("/api/security/os-scheduler")
+async def api_get_os_scheduler(_auth: None = Depends(require_api_auth)):
+    try:
+        adapter = security_service.get_os_scheduler_adapter()
+        data = adapter.get_tasks()
+        return {"ok": True, "data": data}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+class OsSchedulerActionRequest(BaseModel):
+    master_password: str
+    action: str = ""
+    name: str = ""
+    schedule: str = ""
+    command: str = ""
+
+@router.post("/api/security/os-scheduler/action")
+async def api_os_scheduler_action(
+    req: OsSchedulerActionRequest,
+    _auth: None = Depends(require_api_auth)
+):
+    if not verify_password(req.master_password):
+        return {"ok": False, "error": "Master Password salah."}
+        
+    try:
+        adapter = security_service.get_os_scheduler_adapter()
+        if req.action == "add":
+            if not req.name or not req.command or not req.schedule:
+                return {"ok": False, "error": "Nama, Jadwal, dan Perintah harus diisi."}
+            success = adapter.add_task(req.name, req.schedule, req.command)
+            msg = f"Tugas OS Scheduler '{req.name}' ditambahkan."
+        elif req.action == "delete":
+            if not req.name:
+                return {"ok": False, "error": "Nama tugas tidak valid."}
+            success = adapter.delete_task(req.name)
+            msg = f"Tugas '{req.name}' dihapus."
+        else:
+            return {"ok": False, "error": "Aksi tidak valid."}
+            
+        if success:
+            return {"ok": True, "message": msg}
+        else:
+            return {"ok": False, "error": "Gagal menerapkan aksi (pastikan akses memadai/Administrator/sudo)."}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+

@@ -194,3 +194,146 @@ def get_firewall_adapter() -> FirewallAdapter:
     if platform.system() == "Windows":
         return WindowsNetshAdapter()
     return LinuxUFWAdapter()
+
+
+class OsSchedulerAdapter:
+    def get_tasks(self) -> List[Dict[str, Any]]:
+        raise NotImplementedError
+        
+    def add_task(self, name: str, schedule: str, command: str) -> bool:
+        raise NotImplementedError
+        
+    def delete_task(self, name: str) -> bool:
+        raise NotImplementedError
+
+
+class LinuxCronAdapter(OsSchedulerAdapter):
+    def get_tasks(self) -> List[Dict[str, Any]]:
+        try:
+            out = subprocess.check_output(["crontab", "-l"], text=True, stderr=subprocess.STDOUT)
+            lines = out.splitlines()
+            tasks = []
+            for line in lines:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                # Parse schedule (first 5 fields) and command
+                parts = line.split(maxsplit=5)
+                if len(parts) >= 6:
+                    schedule = " ".join(parts[:5])
+                    command = parts[5]
+                    tasks.append({
+                        "name": f"Cron: {command[:20]}...",
+                        "schedule": schedule,
+                        "command": command,
+                        "next_run": "-",
+                        "raw": line
+                    })
+                else:
+                    tasks.append({"name": "Unknown", "schedule": "-", "command": line, "next_run": "-", "raw": line})
+            return tasks
+        except subprocess.CalledProcessError:
+            # crontab -l exits with 1 if no crontab for user
+            return []
+        except Exception as e:
+            return [{"name": "Error", "schedule": "-", "command": f"Failed to read crontab: {e}", "next_run": "-", "raw": str(e)}]
+
+    def add_task(self, name: str, schedule: str, command: str) -> bool:
+        try:
+            new_job = f"# {name}\n{schedule} {command}\n"
+            try:
+                current = subprocess.check_output(["crontab", "-l"], text=True, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError:
+                current = ""
+            
+            new_crontab = current + "\n" + new_job
+            
+            proc = subprocess.Popen(["crontab", "-"], stdin=subprocess.PIPE, text=True)
+            proc.communicate(input=new_crontab)
+            return proc.returncode == 0
+        except Exception:
+            return False
+
+    def delete_task(self, name: str) -> bool:
+        # In Linux context, the frontend passes `raw` as the name identifier.
+        try:
+            current = subprocess.check_output(["crontab", "-l"], text=True, stderr=subprocess.STDOUT)
+            lines = current.splitlines()
+            new_lines = []
+            deleted = False
+            for line in lines:
+                if line.strip() == name.strip():
+                    deleted = True
+                    continue
+                new_lines.append(line)
+            
+            if not deleted:
+                return False
+                
+            new_crontab = "\n".join(new_lines) + "\n"
+            proc = subprocess.Popen(["crontab", "-"], stdin=subprocess.PIPE, text=True)
+            proc.communicate(input=new_crontab)
+            return proc.returncode == 0
+        except Exception:
+            return False
+
+
+class WindowsTaskAdapter(OsSchedulerAdapter):
+    def get_tasks(self) -> List[Dict[str, Any]]:
+        import csv
+        import io
+        try:
+            out = subprocess.check_output(["schtasks", "/query", "/fo", "CSV", "/v"], text=True, errors="replace")
+            reader = csv.DictReader(io.StringIO(out))
+            tasks = []
+            for row in reader:
+                if not row or "TaskName" not in row or not row["TaskName"]:
+                    continue
+                task_name = row.get("TaskName", "")
+                if task_name == "TaskName":
+                    continue
+                # Sembunyikan tugas internal Microsoft untuk mengurangi kebisingan UI
+                if task_name.startswith("\\Microsoft\\"):
+                    continue
+                
+                tasks.append({
+                    "name": task_name.strip('\\'),
+                    "schedule": row.get("Schedule Type", "-") + " " + row.get("Start Time", ""),
+                    "command": row.get("Task To Run", ""),
+                    "next_run": row.get("Next Run Time", "-"),
+                    "raw": task_name
+                })
+            return tasks
+        except Exception as e:
+            return [{"name": "Error", "schedule": "-", "command": f"Failed to read schtasks: {e}", "next_run": "-", "raw": str(e)}]
+
+    def add_task(self, name: str, schedule: str, command: str) -> bool:
+        # Format schedule dari FE: "DAILY 10:00" atau "MINUTE 15"
+        try:
+            parts = schedule.strip().split(maxsplit=1)
+            sc = parts[0].upper()
+            
+            cmd = ["schtasks", "/create", "/tn", f"Quenza_{name}", "/tr", command, "/sc", sc]
+            if len(parts) > 1 and sc not in ("ONSTART", "ONLOGON", "ONIDLE"):
+                # Windows schtasks time format: HH:mm
+                cmd.extend(["/st", parts[1]])
+                
+            subprocess.check_call(cmd)
+            return True
+        except Exception:
+            return False
+
+    def delete_task(self, name: str) -> bool:
+        try:
+            # name adalah raw task_name dari Windows
+            subprocess.check_call(["schtasks", "/delete", "/tn", name, "/f"])
+            return True
+        except Exception:
+            return False
+
+
+def get_os_scheduler_adapter() -> OsSchedulerAdapter:
+    """Return platform specific OS scheduler adapter."""
+    if platform.system() == "Windows":
+        return WindowsTaskAdapter()
+    return LinuxCronAdapter()
