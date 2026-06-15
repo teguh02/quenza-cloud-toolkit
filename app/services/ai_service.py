@@ -54,7 +54,7 @@ async def ask_ai(developer_prompt: str, user_prompt: str, effort: str = "low") -
             
         if response.status_code != 200:
             logger.error(f"OpenAI API Error: {response.text}")
-            return f"Gagal menghubungi OpenAI API (Status {response.status_code})."
+            return f"Terjadi kesalahan: Gagal menghubungi OpenAI API (Status {response.status_code})."
             
         data = response.json()
         if "output_text" in data:

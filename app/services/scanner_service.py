@@ -6,11 +6,13 @@ import uuid
 import json
 import subprocess
 import asyncio
+from typing import Any
 from datetime import datetime, timezone, timedelta
 
 from app.database import SessionLocal
 from app.models import QuarantineLog, AppSetting
 from app.services import notification_service, ai_service
+from app.services.heuristic_filter import HeuristicPreFilter
 
 try:
     import yara
@@ -299,7 +301,7 @@ def clean_quarantined_file(log_id: int, db=None) -> tuple[bool, str]:
 
 
 def _is_script_file(filepath: str) -> bool:
-    exts = [".php", ".py", ".js", ".sh", ".bash", ".pl", ".rb", ".ps1"]
+    exts = [".php", ".py", ".js", ".sh", ".bash", ".pl", ".rb", ".ps1", ".html", ".htm"]
     return any(filepath.lower().endswith(ext) for ext in exts)
 
 def _is_recently_modified(filepath: str, hours=48) -> bool:
@@ -368,6 +370,10 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
                     if has_clamav: active_engines.append("ClamAV")
                     
                     emit(2, f"Memindai {total_files} file dengan {' + '.join(active_engines)}...", 20)
+                    ai_call_count = 0
+                    MAX_AI_CALLS = 30
+                    heuristic_filter = HeuristicPreFilter()
+                    
                     for i, filepath in enumerate(files_to_scan):
                         if i % max(1, total_files // 20) == 0:
                             pct = 20 + int((i / total_files) * 70)
@@ -381,19 +387,27 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
                                 try:
                                     with open(filepath, "r", encoding="utf-8") as f_obj:
                                         content = f_obj.read()
-                                    ai_result = asyncio.run(ai_service.ask_ai_semantic_check(content))
-                                    if ai_result != "SAFE" and "Fitur AI" not in ai_result and "Terjadi kesalahan" not in ai_result:
-                                        triggered.append(f"AI-Semantic: {ai_result[:100]}")
                                         
-                                        # Dynamic YARA Rule Generator
-                                        import hashlib
-                                        fhash = hashlib.sha256(content.encode('utf-8')).hexdigest()
-                                        rule_name = f"ai_zero_day_{fhash[:8]}"
-                                        rule_content = f'rule {rule_name} {{\n    meta:\n        description = "AI Detected Semantic Zero-Day"\n        hash = "{fhash}"\n    condition:\n        hash.sha256(0, filesize) == "{fhash}"\n}}'
-                                        rule_path = os.path.join("app", "data", "yara_rules", "malware", f"{rule_name}.yar")
-                                        os.makedirs(os.path.dirname(rule_path), exist_ok=True)
-                                        with open(rule_path, "w", encoding="utf-8") as rf:
-                                            rf.write(rule_content)
+                                    _, ext = os.path.splitext(filepath)
+                                    scan_result = heuristic_filter.scan_content(content, ext)
+                                    if scan_result["suspicious"]:
+                                        if ai_call_count < MAX_AI_CALLS:
+                                            ai_call_count += 1
+                                            ai_result = asyncio.run(ai_service.ask_ai_semantic_check(content))
+                                            if ai_result != "SAFE" and "Fitur AI" not in ai_result and "Terjadi kesalahan" not in ai_result:
+                                                triggered.append(f"AI-Semantic: {ai_result[:100]}")
+                                                
+                                                # Dynamic YARA Rule Generator
+                                                import hashlib
+                                                fhash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+                                                rule_name = f"ai_zero_day_{fhash[:8]}"
+                                                rule_content = f'rule {rule_name} {{\n    meta:\n        description = "AI Detected Semantic Zero-Day"\n        hash = "{fhash}"\n    condition:\n        hash.sha256(0, filesize) == "{fhash}"\n}}'
+                                                rule_path = os.path.join("app", "data", "yara_rules", "malware", f"{rule_name}.yar")
+                                                os.makedirs(os.path.dirname(rule_path), exist_ok=True)
+                                                with open(rule_path, "w", encoding="utf-8") as rf:
+                                                    rf.write(rule_content)
+                                        else:
+                                            logger.debug(f"AI quota limit reached ({MAX_AI_CALLS}). Skipping semantic check for {filepath}")
                                 except Exception as e:
                                     logger.debug(f"AI Semantic check failed for {filepath}: {e}")
 
