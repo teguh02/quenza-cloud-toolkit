@@ -11,7 +11,7 @@ from datetime import datetime, timezone, timedelta
 
 from app.database import SessionLocal
 from app.models import QuarantineLog, AppSetting
-from app.services import notification_service, ai_service
+from app.services import notification_service, ai_service, av_whitelist_service
 from app.services.heuristic_filter import HeuristicPreFilter
 from app.services.quarantine_filter import QuarantineHeuristicFilter
 
@@ -368,6 +368,7 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
         # Load settings
         targets_setting = db.query(AppSetting).filter_by(key="av_targets").first()
         auto_quarantine_setting = db.query(AppSetting).filter_by(key="av_auto_quarantine").first()
+        whitelist_names = av_whitelist_service.get_filename_set(db)
         
         targets = json.loads(targets_setting.value) if targets_setting and targets_setting.value else []
         auto_quarantine = (auto_quarantine_setting and auto_quarantine_setting.value == "1")
@@ -378,6 +379,7 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
         total_files = 0
         findings = []
         quarantined = []
+        skipped_whitelist = []
         
         if not targets:
             logger.info("No targets configured for standalone scan. Skipping.")
@@ -391,14 +393,25 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
                 if os.path.isdir(target):
                     for root, _, files in os.walk(target):
                         for name in files:
-                            files_to_scan.append(os.path.join(root, name))
+                            filepath = os.path.join(root, name)
+                            if av_whitelist_service.is_whitelisted_path(filepath, whitelist_names):
+                                skipped_whitelist.append(filepath)
+                                continue
+                            files_to_scan.append(filepath)
                 else:
-                    files_to_scan.append(target)
+                    if av_whitelist_service.is_whitelisted_path(target, whitelist_names):
+                        skipped_whitelist.append(target)
+                    else:
+                        files_to_scan.append(target)
                     
             total_files = len(files_to_scan)
             if total_files == 0:
-                logger.info("No files found in targets.")
-                msg = "Tidak ditemukan file pada target direktori."
+                if skipped_whitelist:
+                    logger.info("All target files are skipped by Antivirus whitelist.")
+                    msg = "Semua file target cocok dengan daftar putih, tidak ada yang dipindai."
+                else:
+                    logger.info("No files found in targets.")
+                    msg = "Tidak ditemukan file pada target direktori."
             else:
                 rules = get_yara_rules()
                 has_clamav = shutil.which("clamdscan") or shutil.which("clamscan")
@@ -514,7 +527,10 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
         detail = {
             "total_files_scanned": total_files,
             "findings": findings,
-            "quarantined": quarantined
+            "quarantined": quarantined,
+            "whitelist_names": sorted(whitelist_names),
+            "skipped_whitelist_count": len(skipped_whitelist),
+            "skipped_whitelist_samples": skipped_whitelist[:100],
         }
 
         if findings and ai_service.is_ai_enabled():

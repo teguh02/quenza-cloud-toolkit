@@ -46,7 +46,7 @@ penjadwalan otomatis, hingga restore yang aman.
 - **Backup manual** kapan saja (tombol Run Backup), independen dari jadwal.
 - **Restore** pasif & aman (download + extract, proteksi path traversal).
 - **History/Logs** dengan filter, paginasi, dan detail.
-- **Settings**: zona waktu global + notifikasi (Email atau Telegram) dengan tombol uji kirim.
+- **Settings**: zona waktu global, notifikasi (Email atau Telegram), dan daftar putih Antivirus terjadwal (tambah/edit/hapus nama file) dengan modal & tabel.
 - **Notifikasi** hasil backup & restore via Email (maks 3 penerima) atau Telegram bot.
 
 ---

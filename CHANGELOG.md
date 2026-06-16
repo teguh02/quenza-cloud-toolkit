@@ -28,6 +28,7 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/lang/id/).
 - **Monitoring Kesehatan Antivirus**: Dashboard kesehatan khusus untuk modul Antivirus & Scanner. Memeriksa ketersediaan engine (ClamAV & YARA), status kompilasi rules, target direktori yang tidak dapat diakses, dan statistik karantina.
 - **OS Scheduler Management**: Sub-fitur baru di modul Security untuk membaca dan mengelola tugas terjadwal tingkat sistem operasi secara lintas platform (*Cron* di Linux, *Task Scheduler* di Windows). Operasi perubahan (*add* / *delete*) dilindungi secara ketat oleh validasi Master Password.
 - **Antivirus Quarantine - Restore Semua**: Tombol aksi satu klik pada *Brankas Karantina* untuk memulihkan seluruh file dengan status `quarantined` kembali ke lokasi aslinya sekaligus.
+- **Daftar Putih Antivirus Terjadwal**: Card baru di halaman **Settings** untuk mengelola whitelist nama file (tambah/edit/hapus via modal + tabel). Scanner & karantina otomatis kini mengabaikan file yang nama basenya ada di daftar putih.
 
 ### Diperbaiki
 - **Pemindaian Ganda**: Proses pemindaian tidak lagi langsung membatalkan seluruh operasi jika salah satu mesin pemindai (*database* YARA) belum diunduh, melainkan melanjutkan pemindaian dengan mesin yang masih tersedia (ClamAV).

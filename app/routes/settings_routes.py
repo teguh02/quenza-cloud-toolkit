@@ -10,7 +10,13 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_login
 from app.database import get_db
-from app.services import crypto, notification_service, scheduler_health_service, settings_service
+from app.services import (
+    av_whitelist_service,
+    crypto,
+    notification_service,
+    scheduler_health_service,
+    settings_service,
+)
 from app.templating import templates
 
 router = APIRouter(prefix="/settings")
@@ -50,6 +56,7 @@ async def settings_page(
             "max_recipients": settings_service.MAX_RECIPIENTS,
             "crypto_ready": crypto.is_configured(),
             "scheduler_health": scheduler_health,
+            "av_whitelist": av_whitelist_service.list_entries(db),
             "flash": request.query_params.get("msg"),
             "flash_type": request.query_params.get("type", "success"),
             "ai_config": ai_config,
@@ -170,6 +177,69 @@ async def settings_notifications_test(
 
     ok, message = notification_service.send_test()
     return _redirect("/settings", msg=message, type="success" if ok else "error")
+
+
+@router.post("/antivirus-whitelist/add", name="settings_av_whitelist_add", response_model=None)
+async def settings_av_whitelist_add(
+    request: Request,
+    file_name: str = Form(""),
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    """Add new Antivirus whitelist filename."""
+    guard = require_login(request)
+    if guard is not None:
+        return guard
+
+    try:
+        av_whitelist_service.create_entry(db, file_name)
+    except ValueError as exc:
+        return _redirect("/settings", msg=str(exc), type="error")
+    return _redirect("/settings", msg="Daftar putih berhasil ditambahkan.")
+
+
+@router.post(
+    "/antivirus-whitelist/{entry_id}/edit",
+    name="settings_av_whitelist_edit",
+    response_model=None,
+)
+async def settings_av_whitelist_edit(
+    request: Request,
+    entry_id: int,
+    file_name: str = Form(""),
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    """Update Antivirus whitelist filename."""
+    guard = require_login(request)
+    if guard is not None:
+        return guard
+
+    try:
+        av_whitelist_service.update_entry(db, entry_id, file_name)
+    except ValueError as exc:
+        return _redirect("/settings", msg=str(exc), type="error")
+    return _redirect("/settings", msg="Daftar putih berhasil diperbarui.")
+
+
+@router.post(
+    "/antivirus-whitelist/{entry_id}/delete",
+    name="settings_av_whitelist_delete",
+    response_model=None,
+)
+async def settings_av_whitelist_delete(
+    request: Request,
+    entry_id: int,
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    """Delete Antivirus whitelist filename."""
+    guard = require_login(request)
+    if guard is not None:
+        return guard
+
+    try:
+        av_whitelist_service.delete_entry(db, entry_id)
+    except ValueError as exc:
+        return _redirect("/settings", msg=str(exc), type="error")
+    return _redirect("/settings", msg="Daftar putih berhasil dihapus.")
 
 
 @router.get("/api/check-update", name="settings_check_update", response_model=None)
