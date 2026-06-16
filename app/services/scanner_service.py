@@ -222,6 +222,47 @@ def restore_quarantined_file(log_id: int, db=None) -> bool:
             db.close()
 
 
+def restore_all_quarantined_files(db=None) -> dict[str, Any]:
+    """Restore all files currently in quarantine."""
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
+
+    restored = 0
+    failed = 0
+
+    try:
+        logs = db.query(QuarantineLog).filter(QuarantineLog.status == "quarantined").all()
+        total = len(logs)
+        if total == 0:
+            return {"total": 0, "restored": 0, "failed": 0}
+
+        for log in logs:
+            try:
+                # Ensure original directory exists
+                orig_dir = os.path.dirname(log.original_path)
+                if orig_dir:
+                    os.makedirs(orig_dir, exist_ok=True)
+
+                shutil.move(log.quarantined_path, log.original_path)
+                log.status = "restored"
+                log.resolved_at = datetime.now(timezone.utc)
+                restored += 1
+            except Exception as exc:
+                failed += 1
+                logger.error(f"Failed to restore quarantined file {log.id}: {exc}")
+
+        db.commit()
+        return {"total": total, "restored": restored, "failed": failed}
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        if close_db:
+            db.close()
+
+
 def delete_quarantined_file(log_id: int, db=None) -> bool:
     close_db = False
     if db is None:

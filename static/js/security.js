@@ -328,7 +328,13 @@
       
       // Quarantine Log Table
       html += '<div class="rounded-xl border border-line bg-canvas/30 p-5">';
-      html += '<h3 class="text-sm font-bold text-heading mb-4">Brankas Karantina</h3>';
+      var quarantinedCount = logs.filter(function(l) { return l.status === "quarantined"; }).length;
+      html += '<div class="mb-4 flex items-center justify-between gap-3">';
+      html += '<h3 class="text-sm font-bold text-heading">Brankas Karantina</h3>';
+      if (quarantinedCount > 0) {
+        html += '<button onclick="SecurityMgmt.restoreAllQuarantine()" class="rounded-xl border border-brand-teal/30 bg-brand-gradient px-3 py-1.5 text-xs font-bold text-white shadow-card hover:brightness-[1.03] transition-all">Restore Semua</button>';
+      }
+      html += '</div>';
       
       if (logs.length === 0) {
           html += '<p class="text-sm text-secondary p-4 text-center border border-dashed border-line rounded-xl">Belum ada file yang dikarantina.</p>';
@@ -598,6 +604,21 @@
       });
   }
 
+  function restoreAllQuarantine() {
+      if(!confirm("Yakin ingin memulihkan SEMUA file karantina ke lokasi asalnya?")) return;
+
+      apiPost("/api/security/antivirus/quarantine/restore-all", {}).then(function(res) {
+          if(res.ok) {
+              alert(res.message || "Restore semua file karantina selesai.");
+              refresh();
+          } else {
+              alert("Error: " + res.error);
+          }
+      }).catch(function(e) {
+          alert("Error: " + e);
+      });
+  }
+
   function runAIAudit(tab) {
     if (tab === "antivirus") return; // Di-handle terpisah nanti
     
@@ -682,6 +703,7 @@
     saveAvConfig: saveAvConfig,
     triggerAvScan: triggerAvScan,
     avAction: avAction,
+    restoreAllQuarantine: restoreAllQuarantine,
     addAvTargets: addAvTargets,
     removeAvTarget: removeAvTarget
   };
