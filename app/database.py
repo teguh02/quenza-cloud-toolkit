@@ -62,6 +62,41 @@ def init_db() -> None:
     except Exception:
         pass
 
+    # Seeder for default Antivirus Whitelist (runs only once)
+    try:
+        from app.models import AppSetting, AntivirusWhitelist
+        with SessionLocal() as db_session:
+            seeded = db_session.query(AppSetting).filter_by(key="whitelist_seeded").first()
+            if not seeded:
+                default_whitelist = [
+                    "wp-config.php",
+                    "wp-settings.php",
+                    "database.php",
+                    "settings.php",
+                    "config.php",
+                    "App.php",
+                    "routes.php",
+                    "server.php",
+                    "artisan",
+                    "autoload.php",
+                    ".htaccess",
+                    "web.config",
+                    "composer.json",
+                    "composer.lock",
+                    "package.json",
+                    "config.inc.php",
+                    ".env"
+                ]
+                for filename in default_whitelist:
+                    exists = db_session.query(AntivirusWhitelist).filter_by(file_name=filename).first()
+                    if not exists:
+                        db_session.add(AntivirusWhitelist(file_name=filename))
+                
+                db_session.add(AppSetting(key="whitelist_seeded", value="1"))
+                db_session.commit()
+    except Exception:
+        pass
+
 
 def get_db() -> Generator[Session, None, None]:
     """FastAPI dependency that yields a database session."""
