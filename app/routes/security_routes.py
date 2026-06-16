@@ -49,8 +49,9 @@ async def api_get_processes(_auth: None = Depends(require_api_auth)):
     try:
         data = security_service.get_processes()
         return {"ok": True, "data": data}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logger.exception("Restore-all quarantine action failed.")
+        return {"ok": False, "error": "Gagal memulihkan semua file karantina."}
 
 @router.get("/api/security/firewall")
 async def api_get_firewall(_auth: None = Depends(require_api_auth)):
@@ -58,8 +59,9 @@ async def api_get_firewall(_auth: None = Depends(require_api_auth)):
         adapter = security_service.get_firewall_adapter()
         data = adapter.get_rules()
         return {"ok": True, "data": data}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logger.exception("Single quarantine action failed.")
+        return {"ok": False, "error": "Gagal memproses aksi karantina."}
 
 @router.get("/api/security/antivirus")
 async def api_get_antivirus(db: Session = Depends(get_db), _auth: None = Depends(require_api_auth)):
@@ -119,8 +121,9 @@ async def api_get_antivirus(db: Session = Depends(get_db), _auth: None = Depends
             }
 
         return {"ok": True, "data": {"config": config, "logs": logs, "health": health_data}}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logger.exception("Manual antivirus scan trigger failed.")
+        return {"ok": False, "error": "Gagal menjalankan pemindaian manual."}
 
 class AntivirusConfigRequest(BaseModel):
     av_enabled: bool
