@@ -73,24 +73,7 @@ input,
   transform: translateX(0) !important;
 }
 
-/* Tablet: collapse to icon-only rail */
-@media (min-width: 768px) and (max-width: 1023px) {
-  .quenza-sidebar {
-    width: 72px;
-    transform: translateX(0);
-  }
-  .quenza-sidebar .sidebar-label {
-    display: none;
-  }
-  .quenza-sidebar nav a,
-  .quenza-sidebar .border-t a {
-    justify-content: center;
-  }
-  /* Offset main content by the rail width */
-  #quenza-main {
-    padding-left: 72px;
-  }
-}
+
 
 /* Focus-visible polish for keyboard users */
 :focus-visible {
