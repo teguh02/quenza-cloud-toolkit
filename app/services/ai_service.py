@@ -94,8 +94,10 @@ async def ask_ai_semantic_check(file_content: str) -> str:
     """Ask AI to semantically check a newly modified script for zero-days."""
     dev_prompt = (
         "Anda adalah Analis Zero-Day Malware. Periksa skrip berikut secara semantik. "
-        "Jika skrip ini murni aman, kembalikan HANYA teks 'SAFE'. "
-        "Jika skrip ini mengandung obfuscation mencurigakan, webshell, backdoor, atau pencuri data, "
+        "Jika skrip ini bersih dari malware/backdoor/webshell, kembalikan PERSIS 4 HURUF SAJA: SAFE. "
+        "TIDAK BOLEH memberikan komentar atau alasan jika file aman, meskipun file tersebut mengekspos "
+        "kredensial database atau memiliki kerentanan logika. Kami HANYA mencari malware aktif. "
+        "Jika skrip ini benar-benar mengandung obfuscation mencurigakan, webshell, backdoor, atau pencuri data, "
         "kembalikan alasan singkatnya (maksimal 2 kalimat dalam Bahasa Indonesia)."
     )
     safe_content = file_content[:50000]

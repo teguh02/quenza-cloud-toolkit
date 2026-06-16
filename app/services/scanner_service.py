@@ -27,22 +27,22 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 SCAN_LEVEL_PROFILES: dict[str, dict] = {
     "low": {
-        "min_triggers": 3,
+        "min_triggers": 5,
         "recent_hours": 24,
-        "quarantine_threshold": 5,
-        "max_ai_calls": 10,
+        "quarantine_threshold": 8,
+        "max_ai_calls": 5,
     },
     "default": {
-        "min_triggers": 1,
+        "min_triggers": 3,
         "recent_hours": 48,
-        "quarantine_threshold": 3,
-        "max_ai_calls": 30,
+        "quarantine_threshold": 5,
+        "max_ai_calls": 15,
     },
     "high": {
         "min_triggers": 1,
         "recent_hours": 168,
-        "quarantine_threshold": 2,
-        "max_ai_calls": 60,
+        "quarantine_threshold": 3,
+        "max_ai_calls": 40,
     },
 }
 
@@ -482,7 +482,22 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
                                         if ai_call_count < MAX_AI_CALLS:
                                             ai_call_count += 1
                                             ai_result = asyncio.run(ai_service.ask_ai_semantic_check(content))
-                                            if ai_result != "SAFE" and not any(err in ai_result for err in ["Fitur AI", "Terjadi kesalahan", "Gagal menghubungi"]):
+                                            
+                                            # Robust parsing to avoid quarantining clean config files
+                                            # sometimes AI writes things like "Aman, tapi mengekspos kredensial"
+                                            ai_lower = ai_result.lower().strip()
+                                            is_safe = False
+                                            
+                                            if ai_lower == "safe" or ai_lower.startswith("safe") or "safe." in ai_lower:
+                                                is_safe = True
+                                            elif any(safe_kw in ai_lower for safe_kw in [
+                                                "tidak ditemukan webshell", "bersih dari malware",
+                                                "hanya mengekspos kredensial", "aman", "skrip ini aman",
+                                                "tidak ada indikasi"
+                                            ]):
+                                                is_safe = True
+                                                
+                                            if not is_safe and not any(err in ai_result for err in ["Fitur AI", "Terjadi kesalahan", "Gagal menghubungi"]):
                                                 triggered.append(f"AI-Semantic: {ai_result[:100]}")
                                                 
                                                 # Dynamic YARA Rule Generator
