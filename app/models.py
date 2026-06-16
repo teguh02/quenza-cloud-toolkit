@@ -391,3 +391,21 @@ class QuarantineLog(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<QuarantineLog id={self.id} rule={self.rule_matched} status={self.status}>"
+
+
+class AntivirusWhitelist(Base):
+    """Filename whitelist entries for standalone Antivirus scanner."""
+
+    __tablename__ = "antivirus_whitelist"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<AntivirusWhitelist id={self.id} file_name={self.file_name!r}>"

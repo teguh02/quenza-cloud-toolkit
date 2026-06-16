@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 import json
+import logging
 
 from app.auth import require_api_auth, require_login, verify_password
 from app.services import security_service, scanner_service, ai_service
@@ -13,6 +14,7 @@ from app.models import AppSetting, QuarantineLog
 from app.templating import templates
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/security", response_class=HTMLResponse, name="security", response_model=None)
 async def security_page(
@@ -38,16 +40,18 @@ async def api_get_system(_auth: None = Depends(require_api_auth)):
     try:
         data = security_service.get_system_info()
         return {"ok": True, "data": data}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logger.exception("Restore-all quarantine action failed.")
+        return {"ok": False, "error": "Gagal memulihkan semua file karantina."}
 
 @router.get("/api/security/processes")
 async def api_get_processes(_auth: None = Depends(require_api_auth)):
     try:
         data = security_service.get_processes()
         return {"ok": True, "data": data}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logger.exception("Restore-all quarantine action failed.")
+        return {"ok": False, "error": "Gagal memulihkan semua file karantina."}
 
 @router.get("/api/security/firewall")
 async def api_get_firewall(_auth: None = Depends(require_api_auth)):
@@ -55,8 +59,9 @@ async def api_get_firewall(_auth: None = Depends(require_api_auth)):
         adapter = security_service.get_firewall_adapter()
         data = adapter.get_rules()
         return {"ok": True, "data": data}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logger.exception("Single quarantine action failed.")
+        return {"ok": False, "error": "Gagal memproses aksi karantina."}
 
 @router.get("/api/security/antivirus")
 async def api_get_antivirus(db: Session = Depends(get_db), _auth: None = Depends(require_api_auth)):
@@ -116,8 +121,9 @@ async def api_get_antivirus(db: Session = Depends(get_db), _auth: None = Depends
             }
 
         return {"ok": True, "data": {"config": config, "logs": logs, "health": health_data}}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logger.exception("Manual antivirus scan trigger failed.")
+        return {"ok": False, "error": "Gagal menjalankan pemindaian manual."}
 
 class AntivirusConfigRequest(BaseModel):
     av_enabled: bool
@@ -153,8 +159,9 @@ async def api_set_antivirus_config(
             
         return {"ok": True, "message": "Konfigurasi Antivirus berhasil disimpan."}
     except Exception as e:
+        logger.exception("Saving antivirus config failed.")
         db.rollback()
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": "Gagal menyimpan konfigurasi antivirus."}
 
 class QuarantineActionRequest(BaseModel):
     action: str  # 'restore', 'delete', or 'clean'
@@ -185,7 +192,28 @@ async def api_quarantine_action(
                 return {"ok": False, "error": f"Gagal membersihkan: {msg}"}
             return {"ok": False, "error": "Gagal memproses file. Mungkin sudah terhapus atau dipulihkan."}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        logger.exception("Single quarantine action failed.")
+        return {"ok": False, "error": "Gagal memproses aksi karantina."}
+
+@router.post("/api/security/antivirus/quarantine/restore-all")
+async def api_quarantine_restore_all(
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_api_auth)
+):
+    try:
+        result = scanner_service.restore_all_quarantined_files(db=db)
+        return {
+            "ok": True,
+            "message": (
+                f"Restore selesai: {result['restored']} dari {result['total']} file berhasil dipulihkan."
+                if result["total"] > 0
+                else "Tidak ada file karantina yang perlu dipulihkan."
+            ),
+            "data": result,
+        }
+    except Exception as e:
+        logger.exception("Restore-all quarantine action failed.")
+        return {"ok": False, "error": "Gagal memulihkan semua file karantina."}
 
 @router.post("/api/security/antivirus/scan")
 async def api_manual_scan(_auth: None = Depends(require_api_auth)):
@@ -194,7 +222,8 @@ async def api_manual_scan(_auth: None = Depends(require_api_auth)):
         job_service.enqueue_scan(trigger="manual")
         return {"ok": True, "message": "Pemindaian manual telah dijalankan di latar belakang."}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        logger.exception("Manual antivirus scan trigger failed.")
+        return {"ok": False, "error": "Gagal menjalankan pemindaian manual."}
 
 class SecureActionRequest(BaseModel):
     master_password: str
@@ -218,7 +247,8 @@ async def api_kill_process(
         else:
             return {"ok": False, "error": f"Proses {pid} tidak ditemukan."}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        logger.exception("Kill process action failed.")
+        return {"ok": False, "error": "Gagal menghentikan proses."}
 
 @router.post("/api/security/firewall/rule")
 async def api_firewall_rule(
@@ -244,7 +274,8 @@ async def api_firewall_rule(
         else:
             return {"ok": False, "error": "Gagal menerapkan aturan (pastikan hak akses memadai/sudo)."}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        logger.exception("Firewall action failed.")
+        return {"ok": False, "error": "Gagal menerapkan aturan firewall."}
 
 @router.get("/api/security/osscheduler")
 @router.get("/api/security/os-scheduler")
@@ -254,7 +285,8 @@ async def api_get_os_scheduler(_auth: None = Depends(require_api_auth)):
         data = adapter.get_tasks()
         return {"ok": True, "data": data}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        logger.exception("Fetching OS scheduler tasks failed.")
+        return {"ok": False, "error": "Gagal membaca daftar OS Scheduler."}
 
 class OsSchedulerActionRequest(BaseModel):
     master_password: str
@@ -291,7 +323,8 @@ async def api_os_scheduler_action(
         else:
             return {"ok": False, "error": "Gagal menerapkan aksi (pastikan akses memadai/Administrator/sudo)."}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        logger.exception("OS scheduler action failed.")
+        return {"ok": False, "error": "Gagal memproses aksi OS Scheduler."}
 
 # --- AI Endpoints ---
 
