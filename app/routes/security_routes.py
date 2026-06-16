@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 import json
+import logging
 
 from app.auth import require_api_auth, require_login, verify_password
 from app.services import security_service, scanner_service, ai_service
@@ -13,6 +14,7 @@ from app.models import AppSetting, QuarantineLog
 from app.templating import templates
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/security", response_class=HTMLResponse, name="security", response_model=None)
 async def security_page(
@@ -38,8 +40,9 @@ async def api_get_system(_auth: None = Depends(require_api_auth)):
     try:
         data = security_service.get_system_info()
         return {"ok": True, "data": data}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        logger.exception("Restore-all quarantine action failed.")
+        return {"ok": False, "error": "Gagal memulihkan semua file karantina."}
 
 @router.get("/api/security/processes")
 async def api_get_processes(_auth: None = Depends(require_api_auth)):
