@@ -164,7 +164,7 @@
                   <td class="px-4 py-3 text-right">
                     <div class="inline-flex items-center gap-2">
                       <button type="button"
-                        onclick="QuenzaSettings.openWhitelistModal({{ item.id }}, '{{ item.file_name|replace('\\', '\\\\')|replace(\"'\", \"\\\\'\")|replace('\"', '\\\"') }}')"
+                        onclick='QuenzaSettings.openWhitelistModal({{ item.id }}, {{ item.file_name|tojson }})'
                         class="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-secondary transition-all duration-quenza ease-quenza hover:border-brand-teal/30 hover:text-heading">
                         Edit
                       </button>
