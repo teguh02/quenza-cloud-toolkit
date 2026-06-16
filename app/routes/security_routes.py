@@ -166,6 +166,26 @@ async def api_set_antivirus_config(
 class QuarantineActionRequest(BaseModel):
     action: str  # 'restore', 'delete', or 'clean'
 
+@router.post("/api/security/antivirus/quarantine/restore-all")
+async def api_quarantine_restore_all(
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_api_auth)
+):
+    try:
+        result = scanner_service.restore_all_quarantined_files(db=db)
+        return {
+            "ok": True,
+            "message": (
+                f"Restore selesai: {result['restored']} dari {result['total']} file berhasil dipulihkan."
+                if result["total"] > 0
+                else "Tidak ada file karantina yang perlu dipulihkan."
+            ),
+            "data": result,
+        }
+    except Exception as e:
+        logger.exception("Restore-all quarantine action failed.")
+        return {"ok": False, "error": "Gagal memulihkan semua file karantina."}
+
 @router.post("/api/security/antivirus/quarantine/{log_id}")
 async def api_quarantine_action(
     log_id: int,
@@ -194,26 +214,6 @@ async def api_quarantine_action(
     except Exception as e:
         logger.exception("Single quarantine action failed.")
         return {"ok": False, "error": "Gagal memproses aksi karantina."}
-
-@router.post("/api/security/antivirus/quarantine/restore-all")
-async def api_quarantine_restore_all(
-    db: Session = Depends(get_db),
-    _auth: None = Depends(require_api_auth)
-):
-    try:
-        result = scanner_service.restore_all_quarantined_files(db=db)
-        return {
-            "ok": True,
-            "message": (
-                f"Restore selesai: {result['restored']} dari {result['total']} file berhasil dipulihkan."
-                if result["total"] > 0
-                else "Tidak ada file karantina yang perlu dipulihkan."
-            ),
-            "data": result,
-        }
-    except Exception as e:
-        logger.exception("Restore-all quarantine action failed.")
-        return {"ok": False, "error": "Gagal memulihkan semua file karantina."}
 
 @router.post("/api/security/antivirus/scan")
 async def api_manual_scan(_auth: None = Depends(require_api_auth)):

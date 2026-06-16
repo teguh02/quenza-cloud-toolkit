@@ -5,10 +5,10 @@
 {% block content %}
 {% include "partials/flash.html" %}
 
-<div class="mx-auto max-w-3xl space-y-6">
+<div class="space-y-6">
   <div id="update-alert-container"></div>
 
-  {# ============== SCHEDULER HEALTH ALERT ============== #}
+  {# ============== SCHEDULER HEALTH ALERT (global, above tabs) ============== #}
   {% if scheduler_health and not scheduler_health.is_healthy %}
   <div class="flex items-start gap-4 rounded-3xl border border-red-200 bg-red-50 p-5 shadow-card animate-fade-in">
     <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-600 shadow-sm">
@@ -44,272 +44,347 @@
   </div>
   {% endif %}
 
-  {# ============== ZONA WAKTU ============== #}
-  <section class="rounded-3xl border border-line bg-surface p-6 shadow-card">
-    <div class="flex items-start gap-4">
-      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-pastel-blue text-blue-500">
-        {% include "partials/icons/clock.html" %}
-      </div>
-      <div class="min-w-0 flex-1">
-        <h2 class="text-base font-bold text-heading">Zona Waktu</h2>
-        <p class="mt-0.5 text-xs text-secondary">Digunakan untuk penjadwalan backup & tampilan waktu di seluruh aplikasi. Data tetap disimpan dalam UTC.</p>
+  {# ============== TABBED LAYOUT ============== #}
+  <div class="flex flex-col md:flex-row gap-6">
 
-        <form method="post" action="/settings/general" class="mt-4 flex flex-wrap items-end gap-3">
-          <div class="min-w-[240px] flex-1">
-            <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Zona Waktu Aktif</label>
-            <select name="timezone"
-              class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25">
-              <optgroup label="Umum">
-                {% for tz in common_tz %}
-                <option value="{{ tz }}" {{ "selected" if tz == current_tz }}>{{ tz }}</option>
-                {% endfor %}
-              </optgroup>
-              <optgroup label="Semua Zona Waktu">
-                {% for tz in all_tz %}
-                <option value="{{ tz }}" {{ "selected" if tz == current_tz }}>{{ tz }}</option>
-                {% endfor %}
-              </optgroup>
-            </select>
-          </div>
-          <button type="submit" class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
-            Simpan
+    {# Sidebar Tab Controls #}
+    <div class="w-full md:w-64 shrink-0">
+      <div class="rounded-3xl border border-line bg-surface p-4 shadow-sm">
+        <div class="mb-3">
+          <span class="text-xs font-bold uppercase tracking-wide text-label">Pengaturan</span>
+        </div>
+        <div class="space-y-2">
+          <button type="button" onclick="SettingsTabs.switchTab('general')" id="stab-btn-general"
+            class="flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all duration-200 bg-canvas border border-brand-teal/30">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-pastel-blue text-blue-500">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </span>
+            <div class="min-w-0">
+              <span class="block text-sm font-semibold text-heading">Umum</span>
+              <span class="block text-[11px] text-label truncate">Zona waktu & pembaruan</span>
+            </div>
           </button>
-        </form>
-        <p class="mt-2 text-[11px] text-label">Saat ini: <span class="font-semibold text-secondary">{{ current_tz }}</span></p>
+          <button type="button" onclick="SettingsTabs.switchTab('ai')" id="stab-btn-ai"
+            class="flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all duration-200 hover:bg-canvas border border-transparent">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-pastel-purple text-purple-500">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v2a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-2a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4z"/><circle cx="10" cy="13" r="1"/><circle cx="14" cy="13" r="1"/></svg>
+            </span>
+            <div class="min-w-0">
+              <span class="block text-sm font-semibold text-heading">Kecerdasan Buatan</span>
+              <span class="block text-[11px] text-label truncate">OpenAI GPT-5.5</span>
+            </div>
+          </button>
+          <button type="button" onclick="SettingsTabs.switchTab('whitelist')" id="stab-btn-whitelist"
+            class="flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all duration-200 hover:bg-canvas border border-transparent">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-pastel-green text-brand-teal">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </span>
+            <div class="min-w-0">
+              <span class="block text-sm font-semibold text-heading">Daftar Putih Antivirus</span>
+              <span class="block text-[11px] text-label truncate">Pengecualian pemindaian</span>
+            </div>
+          </button>
+          <button type="button" onclick="SettingsTabs.switchTab('notif')" id="stab-btn-notif"
+            class="flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all duration-200 hover:bg-canvas border border-transparent">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-pastel-orange text-orange-500">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </span>
+            <div class="min-w-0">
+              <span class="block text-sm font-semibold text-heading">Notifikasi</span>
+              <span class="block text-[11px] text-label truncate">Email & Telegram</span>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
-  </section>
 
-  {# ============== KONFIGURASI AI ============== #}
-  <section class="rounded-3xl border border-line bg-surface p-6 shadow-card">
-    <div class="flex items-start gap-4">
-      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-      </div>
-      <div class="min-w-0 flex-1">
-        <h2 class="text-base font-bold text-heading">Konfigurasi Artificial Intelligence</h2>
-        <p class="mt-0.5 text-xs text-secondary">Pengaturan model kecerdasan buatan (OpenAI GPT-5.5) untuk memberikan saran keamanan cerdas.</p>
+    {# Main Content Panel #}
+    <div class="min-w-0 flex-1">
+      <div class="rounded-3xl border border-line bg-surface shadow-card overflow-hidden">
 
-        {% if not crypto_ready %}
-        <div class="mt-4 flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
-          <svg class="mt-0.5 h-4 w-4 shrink-0 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <p class="text-xs text-amber-700"><span class="font-semibold">ENCRYPTION_KEY</span> belum diatur. API Key disimpan terenkripsi, setel <span class="font-mono">ENCRYPTION_KEY</span> di <span class="font-mono">.env</span> terlebih dahulu.</p>
-        </div>
-        {% endif %}
-
-        <form method="post" action="/settings/ai" class="mt-4 space-y-5">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="sm:col-span-2">
-              <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">OpenAI API Key {% if ai_config.api_key %}<span class="font-normal normal-case text-label">(terisi — kosongkan jika tak diubah)</span>{% endif %}</label>
-              <input name="ai_api_key" type="password" placeholder="sk-..."
-                class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+        {# ==================== TAB: UMUM ==================== #}
+        <div id="stab-general" class="settings-tab-panel">
+          <div class="border-b border-line px-6 py-4 bg-canvas/50">
+            <h2 class="text-base font-bold text-heading">Pengaturan Umum</h2>
+            <p class="mt-0.5 text-xs text-secondary">Zona waktu global dan informasi pembaruan aplikasi.</p>
+          </div>
+          <div class="p-6 space-y-6">
+            {# Zona Waktu #}
+            <div class="rounded-2xl border border-line bg-canvas/40 p-5">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pastel-blue text-blue-500">
+                  <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-heading">Zona Waktu</h3>
+                  <p class="text-[11px] text-secondary">Digunakan untuk penjadwalan backup & tampilan waktu di seluruh aplikasi. Data tetap disimpan dalam UTC.</p>
+                </div>
+              </div>
+              <form method="post" action="/settings/general" class="flex flex-wrap items-end gap-3">
+                <div class="min-w-[240px] flex-1">
+                  <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Zona Waktu Aktif</label>
+                  <select name="timezone"
+                    class="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-heading transition-all duration-200 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/25">
+                    <optgroup label="Umum">
+                      {% for tz in common_tz %}
+                      <option value="{{ tz }}" {{ "selected" if tz == current_tz }}>{{ tz }}</option>
+                      {% endfor %}
+                    </optgroup>
+                    <optgroup label="Semua Zona Waktu">
+                      {% for tz in all_tz %}
+                      <option value="{{ tz }}" {{ "selected" if tz == current_tz }}>{{ tz }}</option>
+                      {% endfor %}
+                    </optgroup>
+                  </select>
+                </div>
+                <button type="submit" class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-200 hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
+                  Simpan
+                </button>
+              </form>
+              <p class="mt-2.5 text-[11px] text-label">Saat ini: <span class="font-semibold text-secondary">{{ current_tz }}</span></p>
             </div>
-            
-            <div class="sm:col-span-2 flex items-center justify-between rounded-xl border border-line bg-canvas px-4 py-3">
+
+            {# Pembaruan #}
+            <div class="rounded-2xl border border-line bg-canvas/40 p-5">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pastel-green text-brand-teal">
+                  <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-heading">Pembaruan Aplikasi</h3>
+                  <p class="text-[11px] text-secondary">Status pembaruan akan diperiksa secara otomatis setiap kali halaman ini dimuat.</p>
+                </div>
+              </div>
+              <div id="update-inline-status" class="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-secondary">
+                <span class="inline-flex items-center gap-2">
+                  <svg class="h-4 w-4 animate-spin text-brand-teal" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                  Memeriksa pembaruan…
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {# ==================== TAB: KECERDASAN BUATAN ==================== #}
+        <div id="stab-ai" class="settings-tab-panel hidden">
+          <div class="border-b border-line px-6 py-4 bg-canvas/50">
+            <h2 class="text-base font-bold text-heading">Konfigurasi Kecerdasan Buatan</h2>
+            <p class="mt-0.5 text-xs text-secondary">Pengaturan model AI (OpenAI GPT-5.5) untuk saran keamanan cerdas di modul Security.</p>
+          </div>
+          <div class="p-6">
+            {% if not crypto_ready %}
+            <div class="mb-5 flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+              <svg class="mt-0.5 h-4 w-4 shrink-0 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <p class="text-xs text-amber-700"><span class="font-semibold">ENCRYPTION_KEY</span> belum diatur. API Key disimpan terenkripsi, setel <span class="font-mono">ENCRYPTION_KEY</span> di <span class="font-mono">.env</span> terlebih dahulu.</p>
+            </div>
+            {% endif %}
+
+            <form method="post" action="/settings/ai" class="space-y-5">
               <div>
-                <p class="text-sm font-semibold text-heading">Aktifkan Fitur AI</p>
-                <p class="text-xs text-secondary">Jika diaktifkan, AI otomatis berjalan di background pada modul Security.</p>
+                <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">OpenAI API Key {% if ai_config.api_key %}<span class="font-normal normal-case text-label">(terisi — kosongkan jika tak diubah)</span>{% endif %}</label>
+                <input name="ai_api_key" type="password" placeholder="sk-..."
+                  class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-200 focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
               </div>
-              <label class="relative inline-flex cursor-pointer items-center">
-                <input type="checkbox" name="ai_enabled" value="1" class="peer sr-only" {% if ai_config.enabled %}checked{% endif %}>
-                <div class="h-6 w-11 rounded-full bg-slate-200 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-teal peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-teal/50 rtl:peer-checked:after:-translate-x-full"></div>
-              </label>
-            </div>
+
+              <div class="flex items-center justify-between rounded-xl border border-line bg-canvas px-4 py-3">
+                <div>
+                  <p class="text-sm font-semibold text-heading">Aktifkan Fitur AI</p>
+                  <p class="text-xs text-secondary">Jika diaktifkan, AI otomatis berjalan di background pada modul Security.</p>
+                </div>
+                <label class="relative inline-flex cursor-pointer items-center">
+                  <input type="checkbox" name="ai_enabled" value="1" class="peer sr-only" {% if ai_config.enabled %}checked{% endif %}>
+                  <div class="h-6 w-11 rounded-full bg-slate-200 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-teal peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-teal/50 rtl:peer-checked:after:-translate-x-full"></div>
+                </label>
+              </div>
+
+              <div class="flex justify-end pt-2">
+                <button type="submit" class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-200 hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
+                  Simpan Pengaturan AI
+                </button>
+              </div>
+            </form>
           </div>
-          
-          <div class="flex justify-end pt-2">
-            <button type="submit" class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
-              Simpan Pengaturan AI
+        </div>
+
+        {# ==================== TAB: DAFTAR PUTIH ANTIVIRUS ==================== #}
+        <div id="stab-whitelist" class="settings-tab-panel hidden">
+          <div class="border-b border-line px-6 py-4 bg-canvas/50 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-base font-bold text-heading">Daftar Putih Antivirus</h2>
+              <p class="mt-0.5 text-xs text-secondary">Nama file di daftar ini akan diabaikan oleh pemindaian terjadwal & karantina otomatis Antivirus.</p>
+            </div>
+            <button type="button" onclick="QuenzaSettings.openWhitelistModal()"
+              class="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-xs font-semibold text-white shadow-card transition-all duration-200 hover:shadow-card-hover hover:brightness-[1.03]">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              Tambah
             </button>
           </div>
-        </form>
-      </div>
-    </div>
-  </section>
-
-  {# ============== DAFTAR PUTIH ANTIVIRUS ============== #}
-  <section class="rounded-3xl border border-line bg-surface p-6 shadow-card">
-    <div class="flex items-start gap-4">
-      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-pastel-green text-brand-teal">
-        {% include "partials/icons/security.html" %}
-      </div>
-      <div class="min-w-0 flex-1">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 class="text-base font-bold text-heading">Daftar Putih Antivirus</h2>
-            <p class="mt-0.5 text-xs text-secondary">Nama file di daftar ini akan diabaikan oleh pemindaian terjadwal & karantina otomatis Antivirus.</p>
-          </div>
-          <button type="button" onclick="QuenzaSettings.openWhitelistModal()"
-            class="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-xs font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03]">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-            Tambah
-          </button>
-        </div>
-
-        <div class="mt-4 overflow-x-auto rounded-xl border border-line">
-          <table class="w-full text-left text-sm">
-            <thead class="border-b border-line bg-canvas/70 text-xs uppercase tracking-wide text-label">
-              <tr>
-                <th class="px-4 py-3">Nama File</th>
-                <th class="px-4 py-3">Terakhir Diperbarui</th>
-                <th class="px-4 py-3 text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-line">
-              {% if av_whitelist %}
-                {% for item in av_whitelist %}
-                <tr class="hover:bg-canvas/40 transition-colors">
-                  <td class="px-4 py-3 font-mono text-heading">{{ item.file_name }}</td>
-                  <td class="px-4 py-3 text-secondary">{{ item.updated_at | localtime("%d %b %Y %H:%M") }}</td>
-                  <td class="px-4 py-3 text-right">
-                    <div class="inline-flex items-center gap-2">
-                      <button type="button"
-                        onclick='QuenzaSettings.openWhitelistModal({{ item.id }}, {{ item.file_name|tojson }})'
-                        class="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-secondary transition-all duration-quenza ease-quenza hover:border-brand-teal/30 hover:text-heading">
-                        Edit
-                      </button>
-                      <form method="post" action="/settings/antivirus-whitelist/{{ item.id }}/delete" onsubmit="return confirm('Hapus nama file ini dari daftar putih?')">
-                        <button type="submit"
-                          class="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-all duration-quenza ease-quenza hover:bg-red-100">
-                          Hapus
-                        </button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-                {% endfor %}
-              {% else %}
-                <tr>
-                  <td colspan="3" class="px-4 py-8 text-center text-sm text-secondary">Belum ada nama file pada daftar putih.</td>
-                </tr>
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  {# ============== NOTIFIKASI ============== #}
-  <section class="rounded-3xl border border-line bg-surface p-6 shadow-card">
-    <div class="flex items-start gap-4">
-      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-pastel-green text-brand-teal">
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-      </div>
-      <div class="min-w-0 flex-1">
-        <h2 class="text-base font-bold text-heading">Notifikasi</h2>
-        <p class="mt-0.5 text-xs text-secondary">Dapatkan pemberitahuan hasil backup & restore. Pilih satu channel.</p>
-
-        {% if not crypto_ready %}
-        <div class="mt-4 flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
-          <svg class="mt-0.5 h-4 w-4 shrink-0 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <p class="text-xs text-amber-700"><span class="font-semibold">ENCRYPTION_KEY</span> belum diatur. Notifikasi menyimpan kredensial terenkripsi, jadi setel <span class="font-mono">ENCRYPTION_KEY</span> di <span class="font-mono">.env</span> terlebih dahulu (<span class="font-mono">python generate_key.py</span>).</p>
-        </div>
-        {% endif %}
-
-        <form method="post" action="/settings/notifications" class="mt-4 space-y-5">
-          {# Channel selector #}
-          <div>
-            <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Channel</label>
-            <div class="grid grid-cols-3 gap-2.5">
-              {% set channels = [("none","Nonaktif","slash"),("email","Email","mail"),("telegram","Telegram","send")] %}
-              {% for val, lbl, _ic in channels %}
-              <label class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-line bg-canvas px-3 py-2.5 text-sm font-semibold text-secondary transition-all duration-quenza ease-quenza has-[:checked]:border-brand-teal has-[:checked]:bg-surface has-[:checked]:text-heading has-[:checked]:ring-2 has-[:checked]:ring-brand-teal/25">
-                <input type="radio" name="channel" value="{{ val }}" class="sr-only quenza-notif-channel" {{ "checked" if notif.channel == val }} onchange="QuenzaSettings.showChannel('{{ val }}')" />
-                {{ lbl }}
-              </label>
-              {% endfor %}
+          <div class="p-6">
+            <div class="overflow-x-auto rounded-xl border border-line">
+              <table class="w-full text-left text-sm">
+                <thead class="border-b border-line bg-canvas/70 text-xs uppercase tracking-wide text-label">
+                  <tr>
+                    <th class="px-4 py-3">Nama File</th>
+                    <th class="px-4 py-3">Terakhir Diperbarui</th>
+                    <th class="px-4 py-3 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-line">
+                  {% if av_whitelist %}
+                    {% for item in av_whitelist %}
+                    <tr class="hover:bg-canvas/40 transition-colors">
+                      <td class="px-4 py-3 font-mono text-heading">{{ item.file_name }}</td>
+                      <td class="px-4 py-3 text-secondary">{{ item.updated_at | localtime("%d %b %Y %H:%M") }}</td>
+                      <td class="px-4 py-3 text-right">
+                        <div class="inline-flex items-center gap-2">
+                          <button type="button"
+                            onclick='QuenzaSettings.openWhitelistModal({{ item.id }}, {{ item.file_name|tojson }})'
+                            class="rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-secondary transition-all duration-200 hover:border-brand-teal/30 hover:text-heading">
+                            Edit
+                          </button>
+                          <form method="post" action="/settings/antivirus-whitelist/{{ item.id }}/delete" onsubmit="return confirm('Hapus nama file ini dari daftar putih?')">
+                            <button type="submit"
+                              class="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-all duration-200 hover:bg-red-100">
+                              Hapus
+                            </button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  {% else %}
+                    <tr>
+                      <td colspan="3" class="px-4 py-8 text-center text-sm text-secondary">Belum ada nama file pada daftar putih.</td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+              </table>
             </div>
           </div>
+        </div>
 
-          {# Hidden fields for notification events (forced default to all by user request) #}
-          <input type="hidden" name="notify_on" value="all">
-          <input type="hidden" name="notify_on_backup" value="1">
-          <input type="hidden" name="notify_on_scan" value="1">
-          <input type="hidden" name="notify_on_disk" value="1">
-          <input type="hidden" name="notify_on_health" value="1">
+        {# ==================== TAB: NOTIFIKASI ==================== #}
+        <div id="stab-notif" class="settings-tab-panel hidden">
+          <div class="border-b border-line px-6 py-4 bg-canvas/50">
+            <h2 class="text-base font-bold text-heading">Notifikasi</h2>
+            <p class="mt-0.5 text-xs text-secondary">Dapatkan pemberitahuan hasil backup & restore. Pilih satu channel.</p>
+          </div>
+          <div class="p-6">
+            {% if not crypto_ready %}
+            <div class="mb-5 flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+              <svg class="mt-0.5 h-4 w-4 shrink-0 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <p class="text-xs text-amber-700"><span class="font-semibold">ENCRYPTION_KEY</span> belum diatur. Notifikasi menyimpan kredensial terenkripsi, jadi setel <span class="font-mono">ENCRYPTION_KEY</span> di <span class="font-mono">.env</span> terlebih dahulu (<span class="font-mono">python generate_key.py</span>).</p>
+            </div>
+            {% endif %}
 
-          {# ===== EMAIL fields ===== #}
-          <div id="channel-email" class="space-y-4" {% if notif.channel != 'email' %}style="display:none"{% endif %}>
-            <div class="rounded-2xl border border-line bg-canvas/60 p-4">
-              <p class="mb-3 text-xs font-bold uppercase tracking-wide text-label">Konfigurasi SMTP</p>
-              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div class="sm:col-span-2">
-                  <label class="mb-1.5 block text-xs font-semibold text-label">SMTP Host</label>
-                  <input name="smtp_host" type="text" value="{{ notif.smtp.host }}" placeholder="mis. smtp.gmail.com"
-                    class="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
-                </div>
-                <div>
-                  <label class="mb-1.5 block text-xs font-semibold text-label">Port</label>
-                  <input name="smtp_port" type="number" value="{{ notif.smtp.port }}" placeholder="587"
-                    class="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
-                </div>
-                <div class="flex items-end">
-                  <label class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-secondary">
-                    <input type="checkbox" name="smtp_use_tls" value="1" class="h-4 w-4 accent-brand-teal" {{ "checked" if notif.smtp.use_tls }} />
-                    Gunakan TLS
+            <form method="post" action="/settings/notifications" class="space-y-5">
+              {# Channel selector #}
+              <div>
+                <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Channel</label>
+                <div class="grid grid-cols-3 gap-2.5">
+                  {% set channels = [("none","Nonaktif","slash"),("email","Email","mail"),("telegram","Telegram","send")] %}
+                  {% for val, lbl, _ic in channels %}
+                  <label class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-line bg-canvas px-3 py-2.5 text-sm font-semibold text-secondary transition-all duration-200 has-[:checked]:border-brand-teal has-[:checked]:bg-surface has-[:checked]:text-heading has-[:checked]:ring-2 has-[:checked]:ring-brand-teal/25">
+                    <input type="radio" name="channel" value="{{ val }}" class="sr-only quenza-notif-channel" {{ "checked" if notif.channel == val }} onchange="QuenzaSettings.showChannel('{{ val }}')" />
+                    {{ lbl }}
                   </label>
-                </div>
-                <div>
-                  <label class="mb-1.5 block text-xs font-semibold text-label">Username</label>
-                  <input name="smtp_user" type="text" value="{{ notif.smtp.user }}" placeholder="user@domain.com"
-                    class="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
-                </div>
-                <div>
-                  <label class="mb-1.5 block text-xs font-semibold text-label">Password {% if notif.smtp.password %}<span class="font-normal normal-case text-label">(terisi — kosongkan jika tak diubah)</span>{% endif %}</label>
-                  <input name="smtp_password" type="password" placeholder="••••••••"
-                    class="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
-                </div>
-                <div class="sm:col-span-2">
-                  <label class="mb-1.5 block text-xs font-semibold text-label">Email Pengirim (From)</label>
-                  <input name="smtp_from" type="text" value="{{ notif.smtp.from_addr }}" placeholder="Quenza Backup <noreply@domain.com>"
-                    class="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+                  {% endfor %}
                 </div>
               </div>
-            </div>
-            <div>
-              <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Email Penerima <span class="font-normal normal-case">(maks {{ max_recipients }}, pisahkan dengan koma)</span></label>
-              <textarea name="recipients_raw" rows="2" placeholder="admin@domain.com, ops@domain.com"
-                class="w-full resize-none rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25">{{ notif.recipients | join(", ") }}</textarea>
-            </div>
-          </div>
 
-          {# ===== TELEGRAM fields ===== #}
-          <div id="channel-telegram" class="space-y-4" {% if notif.channel != 'telegram' %}style="display:none"{% endif %}>
-            <div class="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-              <p class="text-xs text-blue-700">Buat bot via <span class="font-semibold">@BotFather</span> di Telegram untuk mendapat <span class="font-semibold">token</span>. Untuk <span class="font-semibold">Chat ID</span>, kirim pesan ke bot lalu cek melalui <span class="font-mono">@userinfobot</span> atau API getUpdates.</p>
-            </div>
-            <div>
-              <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Bot Token {% if notif.telegram.token %}<span class="font-normal normal-case text-label">(terisi — kosongkan jika tak diubah)</span>{% endif %}</label>
-              <input name="telegram_token" type="password" placeholder="123456789:ABCdef..."
-                class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
-            </div>
-            <div>
-              <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Chat ID</label>
-              <input name="telegram_chat_id" type="text" value="{{ notif.telegram.chat_id }}" placeholder="mis. 123456789"
-                class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
-            </div>
-          </div>
+              {# Hidden fields for notification events #}
+              <input type="hidden" name="notify_on" value="all">
+              <input type="hidden" name="notify_on_backup" value="1">
+              <input type="hidden" name="notify_on_scan" value="1">
+              <input type="hidden" name="notify_on_disk" value="1">
+              <input type="hidden" name="notify_on_health" value="1">
 
-          <div class="flex flex-wrap items-center justify-end gap-3 border-t border-line pt-4">
-            <button type="submit" formaction="/settings/notifications/test" formnovalidate
-              id="notif-test-btn" {% if notif.channel == 'none' %}style="display:none"{% endif %}
-              class="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-all duration-quenza ease-quenza hover:border-brand-teal/30 hover:text-heading">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              Kirim Tes
-            </button>
-            <button type="submit"
-              class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
-              Simpan Notifikasi
-            </button>
-          </div>
-          <p class="text-[11px] text-label">Catatan: tombol "Kirim Tes" menggunakan konfigurasi yang <span class="font-semibold">tersimpan</span>. Simpan dulu sebelum menguji bila Anda baru mengubah nilai.</p>
-        </form>
-      </div>
-    </div>
-  </section>
-</div>
+              {# ===== EMAIL fields ===== #}
+              <div id="channel-email" class="space-y-4" {% if notif.channel != 'email' %}style="display:none"{% endif %}>
+                <div class="rounded-2xl border border-line bg-canvas/60 p-4">
+                  <p class="mb-3 text-xs font-bold uppercase tracking-wide text-label">Konfigurasi SMTP</p>
+                  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div class="sm:col-span-2">
+                      <label class="mb-1.5 block text-xs font-semibold text-label">SMTP Host</label>
+                      <input name="smtp_host" type="text" value="{{ notif.smtp.host }}" placeholder="mis. smtp.gmail.com"
+                        class="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-200 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+                    </div>
+                    <div>
+                      <label class="mb-1.5 block text-xs font-semibold text-label">Port</label>
+                      <input name="smtp_port" type="number" value="{{ notif.smtp.port }}" placeholder="587"
+                        class="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-200 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+                    </div>
+                    <div class="flex items-end">
+                      <label class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-secondary">
+                        <input type="checkbox" name="smtp_use_tls" value="1" class="h-4 w-4 accent-brand-teal" {{ "checked" if notif.smtp.use_tls }} />
+                        Gunakan TLS
+                      </label>
+                    </div>
+                    <div>
+                      <label class="mb-1.5 block text-xs font-semibold text-label">Username</label>
+                      <input name="smtp_user" type="text" value="{{ notif.smtp.user }}" placeholder="user@domain.com"
+                        class="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-200 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+                    </div>
+                    <div>
+                      <label class="mb-1.5 block text-xs font-semibold text-label">Password {% if notif.smtp.password %}<span class="font-normal normal-case text-label">(terisi — kosongkan jika tak diubah)</span>{% endif %}</label>
+                      <input name="smtp_password" type="password" placeholder="••••••••"
+                        class="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-200 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+                    </div>
+                    <div class="sm:col-span-2">
+                      <label class="mb-1.5 block text-xs font-semibold text-label">Email Pengirim (From)</label>
+                      <input name="smtp_from" type="text" value="{{ notif.smtp.from_addr }}" placeholder="Quenza Backup <noreply@domain.com>"
+                        class="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-200 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Email Penerima <span class="font-normal normal-case">(maks {{ max_recipients }}, pisahkan dengan koma)</span></label>
+                  <textarea name="recipients_raw" rows="2" placeholder="admin@domain.com, ops@domain.com"
+                    class="w-full resize-none rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-200 focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25">{{ notif.recipients | join(", ") }}</textarea>
+                </div>
+              </div>
 
+              {# ===== TELEGRAM fields ===== #}
+              <div id="channel-telegram" class="space-y-4" {% if notif.channel != 'telegram' %}style="display:none"{% endif %}>
+                <div class="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                  <p class="text-xs text-blue-700">Buat bot via <span class="font-semibold">@BotFather</span> di Telegram untuk mendapat <span class="font-semibold">token</span>. Untuk <span class="font-semibold">Chat ID</span>, kirim pesan ke bot lalu cek melalui <span class="font-mono">@userinfobot</span> atau API getUpdates.</p>
+                </div>
+                <div>
+                  <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Bot Token {% if notif.telegram.token %}<span class="font-normal normal-case text-label">(terisi — kosongkan jika tak diubah)</span>{% endif %}</label>
+                  <input name="telegram_token" type="password" placeholder="123456789:ABCdef..."
+                    class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-200 focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+                </div>
+                <div>
+                  <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Chat ID</label>
+                  <input name="telegram_chat_id" type="text" value="{{ notif.telegram.chat_id }}" placeholder="mis. 123456789"
+                    class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-200 focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25" />
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center justify-end gap-3 border-t border-line pt-4">
+                <button type="submit" formaction="/settings/notifications/test" formnovalidate
+                  id="notif-test-btn" {% if notif.channel == 'none' %}style="display:none"{% endif %}
+                  class="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-all duration-200 hover:border-brand-teal/30 hover:text-heading">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  Kirim Tes
+                </button>
+                <button type="submit"
+                  class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-200 hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
+                  Simpan Notifikasi
+                </button>
+              </div>
+              <p class="text-[11px] text-label">Catatan: tombol "Kirim Tes" menggunakan konfigurasi yang <span class="font-semibold">tersimpan</span>. Simpan dulu sebelum menguji bila Anda baru mengubah nilai.</p>
+            </form>
+          </div>
+        </div>
+
+      </div>{# end main panel #}
+    </div>{# end flex-1 #}
+
+  </div>{# end flex row #}
+</div>{# end space-y-6 #}
+
+{# ============== WHITELIST MODAL ============== #}
 <div id="whitelist-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
   <div class="absolute inset-0 bg-heading/40 backdrop-blur-sm" onclick="QuenzaSettings.closeWhitelistModal()"></div>
   <div class="relative w-full max-w-md overflow-hidden rounded-3xl border border-line bg-surface p-6 shadow-card-hover">
@@ -320,16 +395,16 @@
       <div>
         <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-label">Nama File</label>
         <input id="whitelist-file-name" name="file_name" type="text" required
-          class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-quenza ease-quenza focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25"
+          class="w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-heading placeholder:text-label transition-all duration-200 focus:border-brand-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand-teal/25"
           placeholder="contoh: shell.php" />
       </div>
       <div class="flex justify-end gap-3 pt-1">
         <button type="button" onclick="QuenzaSettings.closeWhitelistModal()"
-          class="rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-all duration-quenza ease-quenza hover:text-heading">
+          class="rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-all duration-200 hover:text-heading">
           Batal
         </button>
         <button type="submit"
-          class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-quenza ease-quenza hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
+          class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-200 hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
           Simpan
         </button>
       </div>
@@ -340,6 +415,69 @@
 
 {% block scripts %}
 <script>
+  /* =========================================================
+   * SettingsTabs – Tab switching for the Settings page
+   * Follows the same sidebar-tab pattern used on Security.
+   * ========================================================= */
+  window.SettingsTabs = (function () {
+    var TABS = ["general", "ai", "whitelist", "notif"];
+    var currentTab = "general";
+
+    function switchTab(name) {
+      if (TABS.indexOf(name) === -1) return;
+      currentTab = name;
+
+      // Update panels
+      TABS.forEach(function (t) {
+        var panel = document.getElementById("stab-" + t);
+        if (panel) {
+          if (t === name) {
+            panel.classList.remove("hidden");
+            panel.style.animation = "quenza-rise 0.25s cubic-bezier(0.4, 0, 0.2, 1)";
+          } else {
+            panel.classList.add("hidden");
+            panel.style.animation = "";
+          }
+        }
+      });
+
+      // Update sidebar buttons
+      TABS.forEach(function (t) {
+        var btn = document.getElementById("stab-btn-" + t);
+        if (!btn) return;
+        if (t === name) {
+          btn.classList.add("bg-canvas");
+          btn.classList.remove("hover:bg-canvas");
+          btn.classList.remove("border-transparent");
+          btn.classList.add("border-brand-teal/30");
+        } else {
+          btn.classList.remove("bg-canvas");
+          btn.classList.add("hover:bg-canvas");
+          btn.classList.add("border-transparent");
+          btn.classList.remove("border-brand-teal/30");
+        }
+      });
+
+      // Persist tab in URL hash
+      if (history.replaceState) {
+        history.replaceState(null, "", "#" + name);
+      }
+    }
+
+    function init() {
+      // Restore tab from URL hash
+      var hash = window.location.hash.replace("#", "");
+      if (hash && TABS.indexOf(hash) !== -1) {
+        switchTab(hash);
+      }
+    }
+
+    return { switchTab: switchTab, init: init };
+  })();
+
+  /* =========================================================
+   * QuenzaSettings – Notification channel toggle + Whitelist modal
+   * ========================================================= */
   window.QuenzaSettings = (function () {
     function showChannel(val) {
       var email = document.getElementById("channel-email");
@@ -385,46 +523,71 @@
     };
   })();
 
+  /* =========================================================
+   * DOMContentLoaded: init tabs + check for updates
+   * ========================================================= */
   document.addEventListener("DOMContentLoaded", function() {
+    SettingsTabs.init();
+
+    // Check for updates (shown inline in Umum tab)
     fetch("/settings/api/check-update", { headers: { "Accept": "application/json" } })
-      .then(r => r.json())
-      .then(data => {
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var container = document.getElementById("update-inline-status");
+        var alertContainer = document.getElementById("update-alert-container");
+
         if (data.available) {
-          var container = document.getElementById("update-alert-container");
-          if (!container) return;
-          
           var local = data.local ? data.local.substring(0, 8) : "Unknown";
           var remote = data.remote ? data.remote.substring(0, 8) : "Unknown";
-          
-          var html = `
-            <div class="flex items-start gap-4 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-card transition-all duration-500">
-              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 shadow-sm">
-                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                  <line x1="12" y1="9" x2="12" y2="13"/>
-                  <line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
-              </div>
-              <div class="min-w-0 flex-1">
-                <h2 class="text-lg font-bold text-amber-900">Pembaruan Tersedia!</h2>
-                <p class="mt-1 text-sm text-amber-800">Versi baru Quenza Cloud Toolkit telah dirilis.</p>
-                <div class="mt-3 inline-block rounded-xl bg-amber-100/50 px-4 py-2 border border-amber-200/50">
-                  <p class="text-xs font-medium text-amber-800">Lokal: <span class="font-mono font-bold">${local}</span> <span class="mx-2 text-amber-600/50">&rarr;</span> Terbaru: <span class="font-mono font-bold">${remote}</span></p>
-                </div>
-                <div class="mt-4">
-                  <p class="text-xs font-medium text-amber-700">Untuk memperbarui, silakan buka terminal (SSH) server Anda dan jalankan perintah berikut di dalam folder Quenza:</p>
-                  <div class="mt-2 flex items-center gap-3 rounded-xl bg-white px-4 py-3 border border-amber-200 shadow-sm">
-                    <svg class="h-4 w-4 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-                    <code class="text-sm font-mono font-bold text-amber-900 select-all">python toolkit.py update</code>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `;
-          container.innerHTML = html;
+
+          // Inline status inside Umum tab
+          if (container) {
+            container.innerHTML = '<div class="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">' +
+              '<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">' +
+                '<svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
+              '</div>' +
+              '<div class="min-w-0 flex-1">' +
+                '<p class="text-sm font-bold text-amber-900">Pembaruan Tersedia!</p>' +
+                '<p class="mt-1 text-xs text-amber-800">Lokal: <span class="font-mono font-bold">' + local + '</span> <span class="mx-1.5 text-amber-600/50">&rarr;</span> Terbaru: <span class="font-mono font-bold">' + remote + '</span></p>' +
+                '<div class="mt-3 flex items-center gap-3 rounded-lg bg-white/80 px-3 py-2 border border-amber-200/60">' +
+                  '<svg class="h-3.5 w-3.5 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>' +
+                  '<code class="text-xs font-mono font-bold text-amber-900 select-all">python toolkit.py update</code>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+          }
+
+          // Also show top-level alert
+          if (alertContainer) {
+            alertContainer.innerHTML = '<div class="flex items-start gap-4 rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-card">' +
+              '<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 shadow-sm">' +
+                '<svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
+              '</div>' +
+              '<div class="min-w-0 flex-1">' +
+                '<h2 class="text-lg font-bold text-amber-900">Pembaruan Tersedia!</h2>' +
+                '<p class="mt-1 text-sm text-amber-800">Versi baru Quenza Cloud Toolkit telah dirilis. Jalankan <code class="font-mono font-bold">python toolkit.py update</code> untuk memperbarui.</p>' +
+              '</div>' +
+            '</div>';
+          }
+        } else {
+          // No update available
+          if (container) {
+            container.innerHTML = '<div class="flex items-center gap-3 text-sm">' +
+              '<div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-pastel-green text-brand-teal">' +
+                '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+              '</div>' +
+              '<span class="text-secondary">Aplikasi Anda sudah menggunakan versi terbaru.</span>' +
+            '</div>';
+          }
         }
       })
-      .catch(e => console.error("Update check failed:", e));
+      .catch(function(e) {
+        var container = document.getElementById("update-inline-status");
+        if (container) {
+          container.innerHTML = '<span class="text-sm text-secondary">Gagal memeriksa pembaruan.</span>';
+        }
+        console.error("Update check failed:", e);
+      });
   });
 </script>
 {% endblock %}

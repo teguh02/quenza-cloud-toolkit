@@ -450,7 +450,7 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
                                         if ai_call_count < MAX_AI_CALLS:
                                             ai_call_count += 1
                                             ai_result = asyncio.run(ai_service.ask_ai_semantic_check(content))
-                                            if ai_result != "SAFE" and "Fitur AI" not in ai_result and "Terjadi kesalahan" not in ai_result:
+                                            if ai_result != "SAFE" and not any(err in ai_result for err in ["Fitur AI", "Terjadi kesalahan", "Gagal menghubungi"]):
                                                 triggered.append(f"AI-Semantic: {ai_result[:100]}")
                                                 
                                                 # Dynamic YARA Rule Generator
