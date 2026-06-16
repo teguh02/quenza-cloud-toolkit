@@ -22,6 +22,30 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Scan aggressiveness profiles (heuristic layer only; ClamAV/YARA unaffected)
+# ---------------------------------------------------------------------------
+SCAN_LEVEL_PROFILES: dict[str, dict] = {
+    "low": {
+        "min_triggers": 3,
+        "recent_hours": 24,
+        "quarantine_threshold": 5,
+        "max_ai_calls": 10,
+    },
+    "default": {
+        "min_triggers": 1,
+        "recent_hours": 48,
+        "quarantine_threshold": 3,
+        "max_ai_calls": 30,
+    },
+    "high": {
+        "min_triggers": 1,
+        "recent_hours": 168,
+        "quarantine_threshold": 2,
+        "max_ai_calls": 60,
+    },
+}
+
 # Compile YARA rules lazily and globally to avoid recompiling on every scan
 _COMPILED_RULES = None
 _YARA_DISABLED = False
@@ -368,10 +392,15 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
         # Load settings
         targets_setting = db.query(AppSetting).filter_by(key="av_targets").first()
         auto_quarantine_setting = db.query(AppSetting).filter_by(key="av_auto_quarantine").first()
+        scan_level_setting = db.query(AppSetting).filter_by(key="av_scan_level").first()
         whitelist_names = av_whitelist_service.get_filename_set(db)
         
         targets = json.loads(targets_setting.value) if targets_setting and targets_setting.value else []
         auto_quarantine = (auto_quarantine_setting and auto_quarantine_setting.value == "1")
+        
+        scan_level = (scan_level_setting.value if scan_level_setting and scan_level_setting.value else "default")
+        profile = SCAN_LEVEL_PROFILES.get(scan_level, SCAN_LEVEL_PROFILES["default"])
+        logger.info(f"Scan aggressiveness level: {scan_level} (profile: {profile})")
         
         status = "success"
         msg = "Pencarian dibatalkan."
@@ -426,9 +455,12 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
                     
                     emit(2, f"Memindai {total_files} file dengan {' + '.join(active_engines)}...", 20)
                     ai_call_count = 0
-                    MAX_AI_CALLS = 30
+                    MAX_AI_CALLS = profile["max_ai_calls"]
                     heuristic_filter = HeuristicPreFilter()
-                    quarantine_filter = QuarantineHeuristicFilter(heuristic_filter)
+                    quarantine_filter = QuarantineHeuristicFilter(
+                        heuristic_filter,
+                        malicious_threshold=profile["quarantine_threshold"],
+                    )
                     
                     for i, filepath in enumerate(files_to_scan):
                         if i % max(1, total_files // 20) == 0:
@@ -438,14 +470,14 @@ def run_standalone_scan(progress_cb=None, trigger="manual"):
                         triggered = scan_file(filepath)
                         
                         # Semantic Zero-Day Check
-                        if not triggered and _is_script_file(filepath) and _is_recently_modified(filepath):
+                        if not triggered and _is_script_file(filepath) and _is_recently_modified(filepath, hours=profile["recent_hours"]):
                             if ai_service.is_ai_enabled():
                                 try:
                                     with open(filepath, "r", encoding="utf-8") as f_obj:
                                         content = f_obj.read()
                                         
                                     _, ext = os.path.splitext(filepath)
-                                    scan_result = heuristic_filter.scan_content(content, ext)
+                                    scan_result = heuristic_filter.scan_content(content, ext, min_triggers=profile["min_triggers"])
                                     if scan_result["suspicious"]:
                                         if ai_call_count < MAX_AI_CALLS:
                                             ai_call_count += 1

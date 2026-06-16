@@ -219,7 +219,55 @@
               Tambah
             </button>
           </div>
-          <div class="p-6">
+          <div class="p-6 space-y-6">
+
+            {# --- Tingkat Agresivitas Pemindaian --- #}
+            <div class="rounded-2xl border border-line bg-canvas/40 p-5">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pastel-orange text-orange-500">
+                  <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-heading">Tingkat Agresivitas Pemindaian</h3>
+                  <p class="text-[11px] text-secondary">Mengatur sensitivitas heuristic filter bawaan Quenza. Tidak mengubah perilaku mesin ClamAV atau YARA.</p>
+                </div>
+              </div>
+              <form method="post" action="/settings/antivirus-scan-level" class="space-y-4">
+                <div class="grid grid-cols-3 gap-2.5">
+                  {% set levels = [
+                    ("low", "Low", "Lebih sedikit deteksi, cocok jika banyak false-positive.", "text-blue-600", "bg-blue-50 border-blue-200", "bg-blue-100"),
+                    ("default", "Default", "Keseimbangan antara deteksi dan false-positive.", "text-brand-teal", "bg-teal-50 border-teal-200", "bg-teal-100"),
+                    ("high", "High", "Sangat agresif, lebih banyak file diperiksa dan dikarantina.", "text-red-600", "bg-red-50 border-red-200", "bg-red-100")
+                  ] %}
+                  {% for val, lbl, desc, text_cls, bg_cls, icon_cls in levels %}
+                  <label class="relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-line bg-surface p-3 text-center transition-all duration-200 has-[:checked]:border-brand-teal has-[:checked]:ring-2 has-[:checked]:ring-brand-teal/25 has-[:checked]:shadow-card hover:shadow-sm">
+                    <input type="radio" name="av_scan_level" value="{{ val }}" class="sr-only" {{ "checked" if av_scan_level == val }} onchange="QuenzaSettings.updateLevelDesc()" />
+                    <span class="flex h-8 w-8 items-center justify-center rounded-lg {{ icon_cls }} {{ text_cls }}">
+                      {% if val == "low" %}
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                      {% elif val == "default" %}
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 12 15 16 10"/></svg>
+                      {% else %}
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      {% endif %}
+                    </span>
+                    <span class="text-sm font-bold text-heading">{{ lbl }}</span>
+                    <span class="text-[10px] leading-tight text-secondary">{{ desc }}</span>
+                  </label>
+                  {% endfor %}
+                </div>
+
+                <div id="scan-level-detail" class="rounded-xl border border-line bg-surface px-4 py-3 text-xs text-secondary"></div>
+
+                <div class="flex justify-end">
+                  <button type="submit" class="rounded-xl bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-card transition-all duration-200 hover:shadow-card-hover hover:brightness-[1.03] active:scale-[0.99]">
+                    Simpan Level
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {# --- Tabel Daftar Putih --- #}
             <div class="overflow-x-auto rounded-xl border border-line">
               <table class="w-full text-left text-sm">
                 <thead class="border-b border-line bg-canvas/70 text-xs uppercase tracking-wide text-label">
@@ -516,10 +564,33 @@
       modal.classList.remove("flex");
     }
 
+    var LEVEL_DETAILS = {
+      low:     { triggers: 3, hours: 24,  threshold: 5, ai: 10 },
+      default: { triggers: 1, hours: 48,  threshold: 3, ai: 30 },
+      high:    { triggers: 1, hours: 168, threshold: 2, ai: 60 }
+    };
+
+    function updateLevelDesc() {
+      var el = document.getElementById("scan-level-detail");
+      if (!el) return;
+      var radios = document.querySelectorAll('input[name="av_scan_level"]');
+      var val = "default";
+      radios.forEach(function(r) { if (r.checked) val = r.value; });
+      var p = LEVEL_DETAILS[val] || LEVEL_DETAILS["default"];
+      el.innerHTML =
+        '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">' +
+          '<div><span class="block text-[10px] font-bold uppercase tracking-wide text-label">Min. Keyword</span><span class="text-sm font-bold text-heading">' + p.triggers + ' hit</span></div>' +
+          '<div><span class="block text-[10px] font-bold uppercase tracking-wide text-label">Jangka Modifikasi</span><span class="text-sm font-bold text-heading">' + p.hours + ' jam</span></div>' +
+          '<div><span class="block text-[10px] font-bold uppercase tracking-wide text-label">Karantina Langsung</span><span class="text-sm font-bold text-heading">&ge;' + p.threshold + ' hit</span></div>' +
+          '<div><span class="block text-[10px] font-bold uppercase tracking-wide text-label">Maks. Panggilan AI</span><span class="text-sm font-bold text-heading">' + p.ai + ' / scan</span></div>' +
+        '</div>';
+    }
+
     return {
       showChannel: showChannel,
       openWhitelistModal: openWhitelistModal,
       closeWhitelistModal: closeWhitelistModal,
+      updateLevelDesc: updateLevelDesc,
     };
   })();
 
@@ -528,6 +599,7 @@
    * ========================================================= */
   document.addEventListener("DOMContentLoaded", function() {
     SettingsTabs.init();
+    QuenzaSettings.updateLevelDesc();
 
     // Check for updates (shown inline in Umum tab)
     fetch("/settings/api/check-update", { headers: { "Accept": "application/json" } })

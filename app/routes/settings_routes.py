@@ -42,6 +42,11 @@ async def settings_page(
     scheduler_health = scheduler_health_service.get_health_status(db)
     ai_config = settings_service.get_ai_config()
 
+    # Read current scan aggressiveness level
+    from app.models import AppSetting
+    scan_level_row = db.query(AppSetting).filter_by(key="av_scan_level").first()
+    av_scan_level = scan_level_row.value if scan_level_row and scan_level_row.value else "default"
+
     return templates.TemplateResponse(
         request,
         "settings.html",
@@ -60,6 +65,7 @@ async def settings_page(
             "flash": request.query_params.get("msg"),
             "flash_type": request.query_params.get("type", "success"),
             "ai_config": ai_config,
+            "av_scan_level": av_scan_level,
         },
     )
 
@@ -239,7 +245,34 @@ async def settings_av_whitelist_delete(
         av_whitelist_service.delete_entry(db, entry_id)
     except ValueError as exc:
         return _redirect("/settings", msg=str(exc), type="error")
-    return _redirect("/settings", msg="Daftar putih berhasil dihapus.")
+    return _redirect("/settings", msg="Daftar putih berhasil dihapus.", **{"_anchor": "whitelist"})
+
+
+@router.post("/antivirus-scan-level", name="settings_av_scan_level", response_model=None)
+async def settings_av_scan_level(
+    request: Request,
+    av_scan_level: str = Form("default"),
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    """Save the Antivirus scan aggressiveness level."""
+    guard = require_login(request)
+    if guard is not None:
+        return guard
+
+    if av_scan_level not in ("low", "default", "high"):
+        return _redirect("/settings", msg="Level pemindaian tidak valid.", type="error")
+
+    from app.models import AppSetting
+
+    setting = db.query(AppSetting).filter_by(key="av_scan_level").first()
+    if not setting:
+        setting = AppSetting(key="av_scan_level", value=av_scan_level)
+        db.add(setting)
+    else:
+        setting.value = av_scan_level
+    db.commit()
+
+    return _redirect("/settings", msg="Tingkat agresivitas pemindaian disimpan.")
 
 
 @router.get("/api/check-update", name="settings_check_update", response_model=None)

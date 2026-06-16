@@ -5,11 +5,16 @@ class QuarantineHeuristicFilter:
     Heuristic filter used during the Quarantine decision phase.
     If ClamAV/YARA flags a file, this filter determines if we actually need AI
     to act as the second judge, or if we can bypass AI to save quota.
+
+    Args:
+        pre_filter: The heuristic keyword scanner instance.
+        malicious_threshold: Minimum keyword hits to quarantine directly
+            without asking AI (default 3).
     """
     
-    def __init__(self, pre_filter: HeuristicPreFilter):
+    def __init__(self, pre_filter: HeuristicPreFilter, malicious_threshold: int = 3):
         self.pre_filter = pre_filter
-        self.malicious_threshold = 3
+        self.malicious_threshold = malicious_threshold
         
     def evaluate(self, content: str, file_ext: str) -> str:
         """

@@ -250,9 +250,16 @@ class HeuristicPreFilter:
             "r00t", "1337", "h4x0r",
         ]
         
-    def scan_content(self, content: str, file_ext: str) -> dict:
+    def scan_content(self, content: str, file_ext: str, min_triggers: int = 1) -> dict:
         """
         Scan content and return a dictionary of triggered keywords.
+
+        Args:
+            content: The file content to scan.
+            file_ext: File extension (e.g. ".php").
+            min_triggers: Minimum number of keyword matches required to
+                consider the file suspicious (default 1).
+
         Returns {"suspicious": bool, "triggers": list}
         """
         content_lower = content.lower()
@@ -282,4 +289,4 @@ class HeuristicPreFilter:
                 if kw in content_lower:
                     findings.append(kw)
                     
-        return {"suspicious": len(findings) > 0, "triggers": findings}
+        return {"suspicious": len(findings) >= min_triggers, "triggers": findings}
