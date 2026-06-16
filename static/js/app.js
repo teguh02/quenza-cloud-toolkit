@@ -30,10 +30,16 @@
 
     if (toggle) {
       toggle.addEventListener("click", function () {
-        if (sidebar.classList.contains("is-open")) {
-          closeSidebar();
+        if (window.innerWidth >= 1024) {
+          // Desktop: toggle body class to collapse sidebar and expand main content
+          document.body.classList.toggle("sidebar-collapsed");
         } else {
-          openSidebar();
+          // Mobile/Tablet: toggle off-canvas drawer
+          if (sidebar.classList.contains("is-open")) {
+            closeSidebar();
+          } else {
+            openSidebar();
+          }
         }
       });
     }

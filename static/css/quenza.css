@@ -73,6 +73,16 @@ input,
   transform: translateX(0) !important;
 }
 
+/* Desktop collapsed state */
+@media (min-width: 1024px) {
+  body.sidebar-collapsed .quenza-sidebar {
+    transform: translateX(-100%) !important;
+  }
+  body.sidebar-collapsed #quenza-main {
+    padding-left: 0 !important;
+  }
+}
+
 
 
 /* Focus-visible polish for keyboard users */
