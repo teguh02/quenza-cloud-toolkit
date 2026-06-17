@@ -1,4 +1,10 @@
-"""AI Service: Communication with OpenAI API (gpt-5.5)."""
+"""AI Service: Communication with OpenAI API.
+
+Model mapping per feature category:
+  - SCAN:      gpt-5       (semantic check, quarantine check, clean file)
+  - ANALYSIS:  gpt-5-mini  (threat report, process audit, OS scheduler)
+  - RECOMMEND: gpt-5-nano  (system info tips, firewall tips)
+"""
 
 import json
 import logging
@@ -10,7 +16,13 @@ from app.services import settings_service
 
 logger = logging.getLogger("quenza.ai")
 
-MODEL_NAME = "gpt-5.5"
+# ---------------------------------------------------------------------------
+# Model mapping per feature category (ClamAV/YARA unaffected)
+# ---------------------------------------------------------------------------
+MODEL_SCAN = "gpt-5"           # Pemindaian: semantic check, quarantine check, clean file
+MODEL_ANALYSIS = "gpt-5-mini"  # Analisis: threat report, proses, OS scheduler
+MODEL_RECOMMEND = "gpt-5-nano" # Rekomendasi ringan: system info, firewall
+MODEL_DEFAULT = "gpt-5"        # Fallback jika tidak ada model spesifik
 
 
 def is_ai_enabled() -> bool:
@@ -19,28 +31,36 @@ def is_ai_enabled() -> bool:
     return cfg.enabled and bool(cfg.api_key)
 
 
-async def ask_ai(developer_prompt: str, user_prompt: str, effort: str = "low") -> str:
-    """Send a prompt to OpenAI Responses API using gpt-5.5.
-    
+async def ask_ai(
+    developer_prompt: str,
+    user_prompt: str,
+    effort: str = "low",
+    model: str | None = None,
+) -> str:
+    """Send a prompt to OpenAI Responses API.
+
     Args:
         developer_prompt: High-level instructions for the AI (role: developer)
         user_prompt: The input data or specific request (role: user)
         effort: Reasoning effort level ("low", "medium", "high")
-        
+        model: OpenAI model name to use. Falls back to MODEL_DEFAULT.
+
     Returns the text response from the AI.
     """
     cfg = settings_service.get_ai_config()
     if not cfg.enabled or not cfg.api_key:
         return "Fitur AI dinonaktifkan atau API Key belum diatur."
 
+    resolved_model = model or MODEL_DEFAULT
+
     url = "https://api.openai.com/v1/responses"
     headers = {
         "Authorization": f"Bearer {cfg.api_key}",
         "Content-Type": "application/json",
     }
-    
+
     payload = {
-        "model": MODEL_NAME,
+        "model": resolved_model,
         "reasoning": {"effort": effort},
         "instructions": developer_prompt,
         "input": user_prompt,
@@ -87,7 +107,7 @@ async def ask_ai_quarantine_check(file_content: str, rule_matched: str) -> str:
     )
     # Truncate content if too large (e.g., first 50KB)
     safe_content = file_content[:50000]
-    return await ask_ai(dev_prompt, safe_content, effort="high")
+    return await ask_ai(dev_prompt, safe_content, effort="high", model=MODEL_SCAN)
 
 
 async def ask_ai_semantic_check(file_content: str) -> str:
@@ -101,7 +121,7 @@ async def ask_ai_semantic_check(file_content: str) -> str:
         "kembalikan alasan singkatnya (maksimal 2 kalimat dalam Bahasa Indonesia)."
     )
     safe_content = file_content[:50000]
-    return await ask_ai(dev_prompt, safe_content, effort="medium")
+    return await ask_ai(dev_prompt, safe_content, effort="medium", model=MODEL_SCAN)
 
 
 async def ask_ai_clean_file(file_content: str) -> str:
@@ -114,7 +134,7 @@ async def ask_ai_clean_file(file_content: str) -> str:
         "Kode yang Anda berikan akan langsung ditulis ulang ke file."
     )
     safe_content = file_content[:50000]
-    res = await ask_ai(dev_prompt, safe_content, effort="high")
+    res = await ask_ai(dev_prompt, safe_content, effort="high", model=MODEL_SCAN)
     
     # Clean up markdown if AI accidentally includes it
     if res.startswith("```"):
@@ -136,4 +156,4 @@ async def ask_ai_threat_report(findings: list) -> str:
         "dan apa dampak potensialnya jika tidak segera ditangani."
     )
     findings_str = json.dumps(findings)
-    return await ask_ai(dev_prompt, findings_str, effort="medium")
+    return await ask_ai(dev_prompt, findings_str, effort="medium", model=MODEL_ANALYSIS)
